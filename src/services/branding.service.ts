@@ -168,7 +168,7 @@ export class BrandingService {
   async updateGlobalBranding(input: Partial<BrandingUpsertInput>): Promise<BrandingDto> {
     const existing = await this.brandingRepository.findGlobal();
     const data = this.validateInput({ ...DEFAULT_BRANDING, ...input });
-    await this.cleanupOldLogo(existing?.logoUrl ?? null, data.logoUrl);
+    await this.cleanupOldLogo(existing?.logoUrl ?? null, data.logoUrl ?? null);
     const record = await this.brandingRepository.upsertGlobal(data);
     return this.toDto(record, null);
   }
@@ -195,7 +195,7 @@ export class BrandingService {
     });
 
     const existing = await this.brandingRepository.findByRoleId(roleId);
-    await this.cleanupOldLogo(existing?.logoUrl ?? null, data.logoUrl);
+    await this.cleanupOldLogo(existing?.logoUrl ?? null, data.logoUrl ?? null);
     const record = await this.brandingRepository.upsertForRole(roleId, data);
     return this.toDto(record, role.name);
   }

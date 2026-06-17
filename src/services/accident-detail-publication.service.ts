@@ -36,7 +36,6 @@ export class AccidentDetailPublicationService {
         return {
           roleId: role.id,
           roleName: role.name,
-          visibleColumnKeys,
           ...buildPublicationMeta(visibleColumnKeys),
         };
       }),
@@ -49,14 +48,13 @@ export class AccidentDetailPublicationService {
       throw new HttpError(404, "Role not found.");
     }
 
-    const allowed = new Set(ALL_ACCIDENT_DETAIL_COLUMN_KEYS);
+    const allowed = new Set<string>(ALL_ACCIDENT_DETAIL_COLUMN_KEYS);
     const filtered = visibleColumnKeys.filter((key) => allowed.has(key));
     await this.publicationRepository.upsert(roleId, filtered);
 
     return {
       roleId: role.id,
       roleName: role.name,
-      visibleColumnKeys: filtered,
       ...buildPublicationMeta(filtered),
     };
   }

@@ -150,23 +150,26 @@ function collectStationTokens(row: LocationScopeRow): string[] {
 export function normalizeLocationScope(raw: unknown): LocationScopeRule[] {
   if (!Array.isArray(raw)) return [];
 
-  return raw
-    .map((item) => {
-      if (!item || typeof item !== "object") return null;
-      const institutionName = String((item as LocationScopeRule).institutionName ?? "").trim();
-      if (!institutionName) return null;
+  const rules: LocationScopeRule[] = [];
 
-      const stationNamesRaw = (item as LocationScopeRule).stationNames;
-      const stationNames = Array.isArray(stationNamesRaw)
-        ? stationNamesRaw.map((station) => String(station).trim()).filter(Boolean)
-        : null;
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const institutionName = String((item as LocationScopeRule).institutionName ?? "").trim();
+    if (!institutionName) continue;
 
-      if (stationNames?.length) {
-        return { institutionName, stationNames };
-      }
-      return { institutionName };
-    })
-    .filter((item): item is LocationScopeRule => item !== null);
+    const stationNamesRaw = (item as LocationScopeRule).stationNames;
+    const stationNames = Array.isArray(stationNamesRaw)
+      ? stationNamesRaw.map((station) => String(station).trim()).filter(Boolean)
+      : null;
+
+    if (stationNames?.length) {
+      rules.push({ institutionName, stationNames });
+    } else {
+      rules.push({ institutionName });
+    }
+  }
+
+  return rules;
 }
 
 function institutionDetailMatch(institutionName: string): Prisma.AccidentDetailWhereInput {

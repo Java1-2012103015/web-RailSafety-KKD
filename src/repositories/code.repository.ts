@@ -8,6 +8,9 @@ import {
 } from "../utils/registration-agency-codes";
 import type { RegistrationAgencyLine } from "../repositories/accident.repository";
 
+type InstitutionRecord = { id: number; code: string; name: string };
+type LineRecord = { id: number; code: string; name: string; institutionId: number };
+
 export class CodeRepository {
   private readonly db = prisma as any;
 
@@ -111,10 +114,14 @@ export class CodeRepository {
       a.localeCompare(b, "ko"),
     );
 
-    const existing = await this.db.institutionCode.findMany();
-    const byName = new Map(existing.map((item: { name: string; code: string; id: number }) => [item.name, item]));
-    const byCode = new Map(existing.map((item: { name: string; code: string; id: number }) => [item.code, item]));
-    const usedCodes = new Set(existing.map((item: { code: string }) => item.code));
+    const existing: InstitutionRecord[] = await this.db.institutionCode.findMany();
+    const byName = new Map<string, InstitutionRecord>(
+      existing.map((item) => [item.name, item]),
+    );
+    const byCode = new Map<string, InstitutionRecord>(
+      existing.map((item) => [item.code, item]),
+    );
+    const usedCodes = new Set<string>(existing.map((item) => item.code));
 
     /** GYEONGGI_QUERY_TREE upsert 대상 — 사고DB 동기화로 기관명이 바뀌지 않도록 보호 */
     const PROTECTED_INSTITUTION_CODES = new Set([
@@ -130,7 +137,7 @@ export class CodeRepository {
 
     for (let index = 0; index < names.length; index += 1) {
       const name = names[index];
-      let institution = byName.get(name);
+      let institution: InstitutionRecord | undefined = byName.get(name);
 
       if (!institution) {
         const presetCode = REGISTRATION_AGENCY_CODE_PRESETS[name];
@@ -180,20 +187,17 @@ export class CodeRepository {
       });
     }
 
-    const institutions = await this.db.institutionCode.findMany();
-    const institutionByName = new Map(
-      institutions.map((item: { id: number; code: string; name: string }) => [item.name, item]),
+    const institutions: InstitutionRecord[] = await this.db.institutionCode.findMany();
+    const institutionByName = new Map<string, InstitutionRecord>(
+      institutions.map((item) => [item.name, item]),
     );
     institutionByName.set(UNREGISTERED_AGENCY_NAME, fallbackInstitution);
 
-    const existingLines = await this.db.lineCode.findMany();
-    const lineByInstitutionAndName = new Map(
-      existingLines.map((line: { id: number; code: string; name: string; institutionId: number }) => [
-        `${line.institutionId}:${line.name}`,
-        line,
-      ]),
+    const existingLines: LineRecord[] = await this.db.lineCode.findMany();
+    const lineByInstitutionAndName = new Map<string, LineRecord>(
+      existingLines.map((line) => [`${line.institutionId}:${line.name}`, line]),
     );
-    const usedLineCodes = new Set(existingLines.map((line: { code: string }) => line.code));
+    const usedLineCodes = new Set<string>(existingLines.map((line) => line.code));
 
     let created = 0;
     let updated = 0;

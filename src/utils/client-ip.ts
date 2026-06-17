@@ -69,6 +69,6 @@ export function parseIpRestrictionInput(input: {
 
   return {
     ipRestrictionEnabled,
-    allowedIp: ipRestrictionEnabled ? normalizeIp(allowedIp) : null,
+    allowedIp: ipRestrictionEnabled && allowedIp ? normalizeIp(allowedIp) : null,
   };
 }
