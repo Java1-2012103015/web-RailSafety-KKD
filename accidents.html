@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>철도사고 조회 | 철도안전정보종합관리시스템</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              navy: { 900: "#1f2747", 800: "#253056", 700: "#2e3a67" },
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="/css/branding-logo.css" />
+  </head>
+  <body class="min-h-screen overflow-x-hidden bg-gray-100 text-gray-800">
+    <div class="flex min-h-screen flex-col">
+      <header>
+        <div class="bg-navy-900 text-white">
+          <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+            <a href="/portal" class="flex min-w-0 items-center gap-2 sm:gap-3" aria-label="포털 메인으로 이동">
+              <span data-branding-wrap="logo" class="branding-logo-box hidden shrink-0">
+                <img id="branding-logo" alt="CI logo" />
+              </span>
+              <span
+                id="branding-ci-mark"
+                class="hidden shrink-0 rounded bg-white/15 px-2 py-0.5 text-[11px] font-semibold sm:text-xs"
+              ></span>
+              <h1 data-branding="system-name" class="truncate text-sm font-bold sm:text-base md:text-lg">
+                철도안전정보종합관리시스템
+              </h1>
+            </a>
+            <div class="flex flex-wrap items-center justify-end gap-2 text-xs sm:text-sm">
+              <a
+                id="portal-admin-link"
+                href="/admin"
+                class="hidden rounded bg-amber-500 px-2 py-1 text-[11px] font-semibold text-navy-900 hover:bg-amber-400 sm:text-xs"
+              >
+                관리자
+              </a>
+              <span id="portal-user-name" class="text-gray-100">사용자님</span>
+              <button
+                id="portal-logout-btn"
+                type="button"
+                class="rounded bg-white px-2 py-1 text-[11px] font-semibold text-navy-900 hover:bg-gray-100 sm:px-3 sm:text-xs"
+              >
+                로그아웃
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="bg-navy-800 text-white">
+          <nav class="mx-auto max-w-7xl overflow-visible px-4 sm:px-6 lg:px-8" aria-label="주 메뉴">
+            <ul id="portal-nav-list" class="flex items-center gap-6 overflow-visible py-3 text-sm font-medium whitespace-nowrap">
+              <li class="text-gray-300">메뉴 로딩 중...</li>
+            </ul>
+          </nav>
+        </div>
+      </header>
+
+      <main class="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-[1600px]">
+          <div class="flex flex-col gap-6 lg:flex-row lg:items-start">
+            <aside id="portal-section-sidebar" class="hidden w-full shrink-0 lg:w-56"></aside>
+            <div class="min-w-0 flex-1">
+          <h2 id="accidents-page-title" class="text-lg font-bold text-gray-900">사고 등록/조회</h2>
+          <p id="accidents-page-desc" class="mt-1 hidden text-sm text-gray-600"></p>
+
+          <div id="accidents-summary-wrap" class="mt-6 hidden">
+            <div id="accidents-summary"></div>
+          </div>
+
+          <div id="accidents-list-wrap" class="mt-4">
+            <form
+              id="accidents-search-form"
+              class="relative border border-gray-300 bg-white text-sm"
+              autocomplete="off"
+            >
+              <button
+                type="submit"
+                class="absolute right-3 top-3 z-10 rounded bg-navy-800 px-5 py-1.5 text-sm font-semibold text-white hover:bg-navy-700"
+              >
+                검색
+              </button>
+
+              <table class="w-full border-collapse">
+                <tbody>
+                  <tr class="border-b border-gray-300">
+                    <th class="w-28 border-r border-gray-300 bg-gray-100 px-3 py-2 text-left font-normal text-gray-700">등록기관</th>
+                    <td class="border-r border-gray-300 px-2 py-1.5">
+                      <select id="filter-agency" name="agency" class="w-full min-w-[120px] border border-gray-300 px-2 py-1 text-sm">
+                        <option value="">전체</option>
+                        <option value="철도공사">철도공사</option>
+                        <option value="서울교통">서울교통</option>
+                        <option value="에스알">에스알</option>
+                        <option value="공항철도">공항철도</option>
+                      </select>
+                    </td>
+                    <th class="w-28 border-r border-gray-300 bg-gray-100 px-3 py-2 text-left font-normal text-gray-700">마감여부</th>
+                    <td class="border-r border-gray-300 px-2 py-1.5">
+                      <select id="filter-closed" name="closed" class="w-full min-w-[100px] border border-gray-300 px-2 py-1 text-sm">
+                        <option value="">전체</option>
+                        <option value="Y">Y</option>
+                        <option value="N">N</option>
+                      </select>
+                    </td>
+                    <th class="w-28 border-r border-gray-300 bg-gray-100 px-3 py-2 text-left font-normal text-gray-700">조사상태</th>
+                    <td class="border-r border-gray-300 px-2 py-1.5">
+                      <select id="filter-investigation" name="investigation" class="w-full min-w-[100px] border border-gray-300 px-2 py-1 text-sm">
+                        <option value="">전체</option>
+                        <option value="최초">최초</option>
+                        <option value="중간">중간</option>
+                        <option value="최종">최종</option>
+                      </select>
+                    </td>
+                    <th class="w-28 border-r border-gray-300 bg-gray-100 px-3 py-2 text-left font-normal text-gray-700">철도구분</th>
+                    <td class="px-2 py-1.5 pr-24">
+                      <select id="filter-rail-category" name="railCategory" class="w-full min-w-[100px] border border-gray-300 px-2 py-1 text-sm">
+                        <option value="">전체</option>
+                        <option value="일반">일반</option>
+                        <option value="고속">고속</option>
+                        <option value="도시철도">도시철도</option>
+                      </select>
+                    </td>
+                  </tr>
+                  <tr class="border-b border-gray-300">
+                    <th class="border-r border-gray-300 bg-gray-100 px-3 py-2 text-left font-normal text-gray-700">열차종류</th>
+                    <td class="border-r border-gray-300 px-2 py-1.5">
+                      <select id="filter-train-type" name="trainType" class="w-full border border-gray-300 px-2 py-1 text-sm">
+                        <option value="">전체</option>
+                        <option value="여객">여객</option>
+                        <option value="화물">화물</option>
+                        <option value="전동차">전동차</option>
+                      </select>
+                    </td>
+                    <th class="border-r border-gray-300 bg-gray-100 px-3 py-2 text-left font-normal text-gray-700">노선</th>
+                    <td class="border-r border-gray-300 px-2 py-1.5">
+                      <select id="filter-line" name="lineName" class="w-full border border-gray-300 px-2 py-1 text-sm">
+                        <option value="">전체</option>
+                      </select>
+                    </td>
+                    <th class="border-r border-gray-300 bg-gray-100 px-3 py-2 text-left font-normal text-gray-700">연계여부</th>
+                    <td class="border-r border-gray-300 px-2 py-1.5">
+                      <select id="filter-linked" name="linked" class="w-full border border-gray-300 px-2 py-1 text-sm">
+                        <option value="">전체</option>
+                        <option value="Y">Y</option>
+                        <option value="N">N</option>
+                      </select>
+                    </td>
+                    <th class="border-r border-gray-300 bg-gray-100 px-3 py-2 text-left font-normal text-gray-700">기간</th>
+                    <td class="px-2 py-1.5 pr-24">
+                      <div class="flex flex-wrap items-center gap-1">
+                        <input
+                          id="filter-start-date"
+                          name="startDate"
+                          type="date"
+                          class="border border-gray-300 px-2 py-1 text-sm"
+                        />
+                        <span class="text-gray-500">~</span>
+                        <input
+                          id="filter-end-date"
+                          name="endDate"
+                          type="date"
+                          class="border border-gray-300 px-2 py-1 text-sm"
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th class="border-r border-gray-300 bg-gray-100 px-3 py-2 text-left font-normal text-gray-700 align-top">사고유형</th>
+                    <td colspan="3" class="px-2 py-1.5">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <select id="filter-type-l1" class="min-w-[100px] border border-gray-300 px-2 py-1 text-sm">
+                          <option value="">전체</option>
+                          <option value="사고">사고</option>
+                          <option value="준사고">준사고</option>
+                          <option value="운행장애">운행장애</option>
+                          <option value="운행장애(관리)">운행장애(관리)</option>
+                        </select>
+                        <select id="filter-type-l2" class="min-w-[100px] border border-gray-300 px-2 py-1 text-sm">
+                          <option value="">전체</option>
+                        </select>
+                        <select id="filter-type-l3" class="min-w-[100px] border border-gray-300 px-2 py-1 text-sm">
+                          <option value="">전체</option>
+                        </select>
+                        <select id="filter-accident-type" name="accidentType" class="min-w-[120px] border border-gray-300 px-2 py-1 text-sm">
+                          <option value="">전체</option>
+                          <option value="COLLISION">충돌</option>
+                          <option value="DERAILMENT">탈선</option>
+                          <option value="FIRE">화재</option>
+                          <option value="SIGNAL_FAILURE">신호장애</option>
+                          <option value="HUMAN_ERROR">인적오류</option>
+                          <option value="TRACK_DEFECT">궤도결함</option>
+                          <option value="OTHER">기타</option>
+                        </select>
+                      </div>
+                    </td>
+                    <th class="border-r border-gray-300 bg-gray-100 px-3 py-2 text-left font-normal text-gray-700">경합여부</th>
+                    <td class="border-r border-gray-300 px-2 py-1.5">
+                      <select id="filter-contention" name="contention" class="w-full border border-gray-300 px-2 py-1 text-sm">
+                        <option value="">전체</option>
+                        <option value="Y">Y</option>
+                        <option value="N">N</option>
+                      </select>
+                    </td>
+                    <th class="border-r border-gray-300 bg-gray-100 px-3 py-2 text-left font-normal text-gray-700 whitespace-nowrap">국토부 보완요청</th>
+                    <td class="px-2 py-1.5">
+                      <select id="filter-supplement" name="supplement" class="w-full border border-gray-300 px-2 py-1 text-sm">
+                        <option value="">전체</option>
+                        <option value="정상">정상</option>
+                        <option value="요청">요청</option>
+                      </select>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </form>
+
+            <div id="accidents-table-wrap" class="mt-4 border border-gray-300 bg-white">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-300 px-3 py-2 text-sm text-gray-700">
+                <p>
+                  총 <span id="accidents-total" class="font-semibold text-navy-900">0</span>개 /
+                  현재페이지 <span id="accidents-current-page">1</span>/<span id="accidents-total-pages">1</span>
+                </p>
+                <div class="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    id="accidents-bulk-upload-btn"
+                    class="hidden rounded border border-emerald-700 bg-emerald-700 px-3 py-0.5 text-sm font-semibold text-white hover:bg-emerald-600"
+                  >
+                    일괄등록(엑셀 업로드)
+                  </button>
+                  <input id="accidents-bulk-file-input" type="file" accept=".xlsx,.xls" class="hidden" />
+                  <button
+                    type="button"
+                    id="accidents-export-accident-btn"
+                    class="rounded border border-navy-800 bg-white px-3 py-0.5 text-sm font-semibold text-navy-800 hover:bg-navy-50"
+                  >
+                    사고정보 다운로드(엑셀)
+                  </button>
+                  <button
+                    type="button"
+                    id="accidents-export-casualty-btn"
+                    class="rounded border border-navy-800 bg-navy-800 px-3 py-0.5 text-sm font-semibold text-white hover:bg-navy-700"
+                  >
+                    사상자 정보 다운로드(엑셀)
+                  </button>
+                  <label class="flex items-center gap-2">
+                    <span class="text-gray-600">View</span>
+                    <select id="accidents-page-size" class="border border-gray-300 px-2 py-0.5 text-sm">
+                      <option value="15" selected>15</option>
+                      <option value="30">30</option>
+                      <option value="50">50</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="min-w-full border-collapse text-xs">
+                  <thead>
+                    <tr class="border-b border-gray-300 bg-[#e8eef5] text-center text-gray-800">
+                      <th class="w-8 border-r border-gray-300 px-1 py-2">
+                        <input id="accidents-check-all" type="checkbox" class="rounded border-gray-400" aria-label="전체 선택" />
+                      </th>
+                      <th class="whitespace-nowrap border-r border-gray-300 px-2 py-2 font-semibold">일련번호</th>
+                      <th class="whitespace-nowrap border-r border-gray-300 px-2 py-2 font-semibold">발생일시</th>
+                      <th class="whitespace-nowrap border-r border-gray-300 px-2 py-2 font-semibold">등록기관</th>
+                      <th class="whitespace-nowrap border-r border-gray-300 px-2 py-2 font-semibold">등록상태</th>
+                      <th class="whitespace-nowrap border-r border-gray-300 px-2 py-2 font-semibold">관련기관</th>
+                      <th class="whitespace-nowrap border-r border-gray-300 px-2 py-2 font-semibold">노선</th>
+                      <th class="whitespace-nowrap border-r border-gray-300 px-2 py-2 font-semibold">사고/장애구분</th>
+                      <th class="whitespace-nowrap border-r border-gray-300 px-2 py-2 font-semibold">유형</th>
+                      <th class="whitespace-nowrap border-r border-gray-300 px-2 py-2 font-semibold">사망</th>
+                      <th class="whitespace-nowrap border-r border-gray-300 px-2 py-2 font-semibold">부상(중상)</th>
+                      <th class="whitespace-nowrap border-r border-gray-300 px-2 py-2 font-semibold">피해액(백만원)</th>
+                      <th class="whitespace-nowrap border-r border-gray-300 px-2 py-2 font-semibold">마감설정</th>
+                      <th class="whitespace-nowrap border-r border-gray-300 px-2 py-2 font-semibold">첨부파일</th>
+                      <th class="whitespace-nowrap border-r border-gray-300 px-2 py-2 font-semibold">조사상태</th>
+                      <th class="whitespace-nowrap border-r border-gray-300 px-2 py-2 font-semibold">최초등록일자</th>
+                      <th class="whitespace-nowrap border-r border-gray-300 px-2 py-2 font-semibold">상세</th>
+                      <th class="whitespace-nowrap border-r border-gray-300 px-2 py-2 font-semibold">보완요청</th>
+                      <th class="whitespace-nowrap px-2 py-2 font-semibold">보완결과</th>
+                    </tr>
+                  </thead>
+                  <tbody id="accidents-table-body" class="divide-y divide-gray-200 bg-white text-center text-gray-800">
+                    <tr>
+                      <td colspan="19" class="px-4 py-8 text-sm text-gray-500">불러오는 중...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-300 px-3 py-2">
+                <button
+                  type="button"
+                  id="accidents-delete-selected-btn"
+                  class="hidden rounded border border-red-700 bg-red-700 px-3 py-0.5 text-xs font-semibold text-white hover:bg-red-600"
+                >
+                  체크된 데이터 삭제
+                </button>
+                <div class="flex items-center justify-center gap-1">
+                  <button type="button" id="accidents-page-first" class="border border-gray-300 px-2 py-0.5 text-xs hover:bg-gray-50">«</button>
+                  <button type="button" id="accidents-page-prev" class="border border-gray-300 px-2 py-0.5 text-xs hover:bg-gray-50">‹</button>
+                  <span id="accidents-page-numbers" class="flex gap-1 px-2"></span>
+                  <button type="button" id="accidents-page-next" class="border border-gray-300 px-2 py-0.5 text-xs hover:bg-gray-50">›</button>
+                  <button type="button" id="accidents-page-last" class="border border-gray-300 px-2 py-0.5 text-xs hover:bg-gray-50">»</button>
+                </div>
+              </div>
+            </div>
+          </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/branding.js"></script>
+    <script src="/js/board-layout.js"></script>
+    <script src="/js/menus.js"></script>
+    <script src="/js/accident-db-columns.js"></script>
+    <script src="/js/accident-kind-category.js"></script>
+    <script src="/js/accidents-page.js"></script>
+  </body>
+</html>

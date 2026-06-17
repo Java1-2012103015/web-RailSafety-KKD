@@ -1,0 +1,184 @@
+model AccidentDetail {
+  id         Int             @id @default(autoincrement())
+  accidentId Int             @unique
+  accident   RailwayAccident @relation(fields: [accidentId], references: [id], onDelete: Cascade)
+
+  accidentNumber String? @unique
+  year Int?
+  month Int?
+  day Int?
+  hour Int?
+  minute Int?
+  occurredAtText String?
+  weekday String?
+  registrationStatus String?
+  registrationAgency String?
+  railwayDivision String?
+  accidentKind String?
+  railwayAccidentKind String?
+  primaryCause String?
+  primaryCauseOther String? @db.Text
+  secondaryCause String?
+  secondaryCauseOther String? @db.Text
+  rootCauseGroup String?
+  rootCause String?
+  rootCauseDetail String? @db.Text
+  riskSource String?
+  operationDisruptionType String?
+  riskIncidentDisruptionStatus String? @db.Text
+  riskIncidentDisruptionCause String? @db.Text
+  riskIncidentCauseDetail String? @db.Text
+  nearMissStatus String? @db.Text
+  nearMissCause String? @db.Text
+  nearMissDetail String? @db.Text
+  delayOperationStatus String? @db.Text
+  delayOperationCause String? @db.Text
+  delayOperationCauseDetail String? @db.Text
+  administrativeDistrict String?
+  facilityDamage String? @db.Text
+  totalCasualtyLabel String?
+  deaths Int?
+  seriousInjuries Int?
+  minorInjuries Int?
+  totalDamageAmount Decimal? @db.Decimal(18, 3)
+  casualtyCompensationAmount Decimal? @db.Decimal(18, 3)
+  propertyDamageAmount Decimal? @db.Decimal(18, 3)
+  otherDamageAmount Decimal? @db.Decimal(18, 3)
+  humanLossCostTotal Decimal? @db.Decimal(18, 3)
+  deathProductionLossCost Decimal? @db.Decimal(18, 3)
+  deathMedicalCost Decimal? @db.Decimal(18, 3)
+  deathAdministrativeCost Decimal? @db.Decimal(18, 3)
+  deathPsychologicalCost Decimal? @db.Decimal(18, 3)
+  seriousProductionLossCost Decimal? @db.Decimal(18, 3)
+  seriousMedicalCost Decimal? @db.Decimal(18, 3)
+  seriousAdministrativeCost Decimal? @db.Decimal(18, 3)
+  seriousPsychologicalCost Decimal? @db.Decimal(18, 3)
+  minorProductionLossCost Decimal? @db.Decimal(18, 3)
+  minorMedicalCost Decimal? @db.Decimal(18, 3)
+  minorAdministrativeCost Decimal? @db.Decimal(18, 3)
+  minorPsychologicalCost Decimal? @db.Decimal(18, 3)
+  materialDamageCostTotal Decimal? @db.Decimal(18, 3)
+  vehicleRecoveryCost Decimal? @db.Decimal(18, 3)
+  trackRecoveryCost Decimal? @db.Decimal(18, 3)
+  signalRecoveryCost Decimal? @db.Decimal(18, 3)
+  electricalRecoveryCost Decimal? @db.Decimal(18, 3)
+  otherFacilityRecoveryCost Decimal? @db.Decimal(18, 3)
+  facilityDamageCostTotal Decimal? @db.Decimal(18, 3)
+  operationLossCostTotal Decimal? @db.Decimal(18, 3)
+  delayLossCost Decimal? @db.Decimal(18, 3)
+  substituteTransportCost Decimal? @db.Decimal(18, 3)
+  fareRefundCost Decimal? @db.Decimal(18, 3)
+  propertyEnvCompensationTotal String?
+  propertyPassengerCompensation String?
+  propertyStaffCompensation String?
+  propertyPublicCompensation String?
+  envPassengerCompensation String?
+  envStaffCompensation String?
+  envPublicCompensation String?
+  otherCostTotal Decimal? @db.Decimal(18, 3)
+  investigationCost Decimal? @db.Decimal(18, 3)
+  legalCost Decimal? @db.Decimal(18, 3)
+  reputationCost Decimal? @db.Decimal(18, 3)
+  otherMiscCost Decimal? @db.Decimal(18, 3)
+  lineName String?
+  lineDirection String?
+  stationA String?
+  stationB String?
+  occurrencePlace String?
+  baseStation String?
+  accidentPointKm Decimal? @db.Decimal(18, 3)
+  crossing String?
+  crossingType String?
+  guidePresent String?
+  trainType String?
+  trainNumber String?
+  consistNumber String?
+  vehicleNumber String?
+  vehicleAge String?
+  carCount Int?
+  unitCount Int?
+  operationFrom String?
+  operationTo String?
+  derailedCars Int?
+  damagedCars Int?
+  severeDamage Int?
+  moderateDamage Int?
+  minorDamage Int?
+  totalDelayedTrains Int?
+  highSpeedDelayedTrains Int?
+  regularDelayedTrains Int?
+  urbanDelayedTrains Int?
+  dedicatedDelayedTrains Int?
+  otherDelayedTrains Int?
+  totalDelayMin Int?
+  totalDelayMax Int?
+  highSpeedDelayMin Int?
+  highSpeedDelayMax Int?
+  regularDelayMin Int?
+  regularDelayMax Int?
+  urbanDelayMin Int?
+  urbanDelayMax Int?
+  dedicatedDelayMin Int?
+  dedicatedDelayMax Int?
+  otherDelayMin Int?
+  otherDelayMax Int?
+  mainLineBlockTime String?
+  mainLineRecoveryTime String?
+  siteSituation String? @db.Text
+  closingSetting String?
+  weatherStatus String?
+  temperature Decimal? @db.Decimal(18, 3)
+  rainfall Decimal? @db.Decimal(18, 3)
+  snowfall Decimal? @db.Decimal(18, 3)
+  fogPresence String?
+  visibility Decimal? @db.Decimal(18, 3)
+  earthquake String?
+  wind Decimal? @db.Decimal(18, 3)
+  staffCategory String?
+  workCategory String?
+  relatedPersonCount Int?
+  relatedPersonOrg String?
+  relatedPersonJob String?
+  relatedPersonRank String?
+  relatedPersonName String?
+  relatedPersonAge Int?
+  placeTypeA String?
+  placeTypeB String?
+  operationLineCategory String?
+  trainVehicleCategory String?
+  speedLimit Decimal? @db.Decimal(18, 3)
+  accidentSpeedA Decimal? @db.Decimal(18, 3)
+  accidentSpeedB Decimal? @db.Decimal(18, 3)
+  trackType String?
+  signalSystemType String?
+  crossingAccidentPlace String?
+  crossingAccidentVehicle String?
+  hazmatCause String?
+  hazmatType String?
+  safetyFacilityTrack String?
+  safetyFacilityVehicle String?
+  safetyFacilityCrossing String?
+  riskIncidentClass String?
+  riskIncidentAttribute String?
+  riskIncident String?
+  riskIncidentDetail String?
+  subjectParty String?
+  objectParty String?
+  place String?
+  status1 String?
+  status2 String?
+  riskAreaClass String?
+  riskArea String?
+  accidentOverview String? @db.Text
+  actionContent String? @db.Text
+  accidentCause String?
+  preventionPlan String? @db.Text
+  accidentNumberBackup String?
+  investigationStatus String?
+  registeredBy String?
+  savedAtText String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([lineName])
+}

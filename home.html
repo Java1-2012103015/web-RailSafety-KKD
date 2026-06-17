@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="refresh" content="0; url=/public/dashboard/accidents" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>철도안전 대시보드 | 철도안전정보종합관리시스템</title>
+    <script>location.replace("/public/dashboard/accidents");</script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              navy: {
+                900: "#1f2747",
+                800: "#253056",
+                700: "#2e3a67",
+              },
+            },
+          },
+        },
+      };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="/css/branding-logo.css" />
+  </head>
+  <body class="min-h-screen bg-gray-100 text-gray-800">
+    <header class="bg-navy-900 text-white">
+      <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+        <div class="flex min-w-0 items-center gap-2 sm:gap-3">
+          <span data-branding-wrap="logo" class="branding-logo-box hidden shrink-0">
+            <img id="branding-logo" alt="CI logo" />
+          </span>
+          <span
+            id="branding-ci-mark"
+            class="hidden shrink-0 rounded bg-white/15 px-2 py-0.5 text-[11px] font-semibold"
+          ></span>
+          <div class="min-w-0">
+            <p class="text-xs text-gray-300">Rail Safety Public Dashboard</p>
+            <h1 data-branding="system-name" class="truncate text-base font-bold sm:text-lg">
+              철도안전정보종합관리시스템
+            </h1>
+          </div>
+        </div>
+        <a
+          href="/login"
+          class="rounded bg-white px-4 py-2 text-sm font-semibold text-navy-900 transition hover:bg-gray-100"
+        >
+          로그인
+        </a>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+      <section class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 class="text-xl font-bold text-gray-900">사고·장애 DB 기반 대시보드</h2>
+          <p class="mt-1 text-sm text-gray-600">최근 5년 및 연도별 사고/장애 통계</p>
+        </div>
+        <p class="text-xs text-gray-500">갱신: <span id="stat-updated">-</span></p>
+      </section>
+
+      <div id="public-dashboard-wrap" class="relative min-h-[24rem]">
+        <div
+          id="public-dashboard-loading"
+          class="absolute inset-0 z-10 flex items-center justify-center rounded-sm bg-white/85"
+          role="status"
+          aria-live="polite"
+          aria-label="통계 불러오는 중"
+        >
+          <div class="flex flex-col items-center gap-3">
+            <div
+              class="h-11 w-11 animate-spin rounded-full border-[3px] border-gray-200 border-t-navy-800"
+            ></div>
+            <p class="text-sm font-medium text-gray-600">통계를 불러오는 중...</p>
+          </div>
+        </div>
+        <div
+          id="public-dashboard-content"
+          class="space-y-6 opacity-0 pointer-events-none"
+          aria-busy="true"
+        >
+      <section id="month-compare-root" class="hidden space-y-4">
+        <div class="grid gap-4 lg:grid-cols-2">
+          <div
+            id="panel-prev-month-accidents"
+            class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm"
+          ></div>
+          <div
+            id="panel-current-month-accidents"
+            class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm"
+          ></div>
+        </div>
+        <div class="grid gap-4 lg:grid-cols-2">
+          <div
+            id="panel-prev-month-disruptions"
+            class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm"
+          ></div>
+          <div
+            id="panel-current-month-disruptions"
+            class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm"
+          ></div>
+        </div>
+      </section>
+
+      <section class="grid gap-4 sm:grid-cols-3">
+        <div class="rounded-sm border border-gray-300 bg-white p-5 shadow-sm">
+          <p class="text-sm text-gray-600">최근 5년 사고발생 건수</p>
+          <p id="stat-recent-accidents" class="mt-2 text-3xl font-bold text-navy-900">-</p>
+        </div>
+        <div class="rounded-sm border border-gray-300 bg-white p-5 shadow-sm">
+          <p class="text-sm text-gray-600">최근 5년 장애발생 건수</p>
+          <p id="stat-recent-disruptions" class="mt-2 text-3xl font-bold text-red-700">-</p>
+        </div>
+        <div class="rounded-sm border border-gray-300 bg-white p-5 shadow-sm">
+          <p class="text-sm text-gray-600">최근 5년 준사고 발생 건수</p>
+          <p id="stat-recent-near-misses" class="mt-2 text-3xl font-bold text-orange-700">-</p>
+        </div>
+      </section>
+
+      <section class="grid gap-4 lg:grid-cols-2">
+        <div class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+          <h3 class="mb-3 text-sm font-bold text-gray-900">최근 5년 사고발생 현황</h3>
+          <div class="h-72">
+            <canvas id="chart-recent-five"></canvas>
+          </div>
+        </div>
+        <div class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+          <h3 class="mb-3 text-sm font-bold text-gray-900">연도별 사고발생현황</h3>
+          <div class="h-72">
+            <canvas id="chart-yearly-accident"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+          <h3 class="mb-3 text-sm font-bold text-gray-900">연도별 장애발생현황</h3>
+          <div class="h-72">
+            <canvas id="chart-yearly-disruption"></canvas>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="mt-8 bg-gray-200" data-branding-wrap="footer">
+      <div class="mx-auto max-w-7xl px-4 py-5 text-xs text-gray-700 sm:px-6 lg:px-8">
+        <p>서울특별시 중구 세종대로 110 | 대표번호 02-1234-5678</p>
+        <p class="mt-1 text-gray-600">Copyright (c) Rail Safety Information System. All rights reserved.</p>
+      </div>
+    </footer>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/branding.js"></script>
+    <script src="/js/dashboard-month-panels.js"></script>
+    <script src="/js/dashboard.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        loadPublicBranding().catch((error) => console.error("Branding load failed:", error));
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>공지사항 상세 | 철도안전정보종합관리시스템</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              navy: {
+                900: "#1f2747",
+                800: "#253056",
+                700: "#2e3a67",
+              },
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="/css/branding-logo.css" />
+  </head>
+  <body class="min-h-screen overflow-x-hidden bg-gray-100 text-gray-800">
+    <div class="flex min-h-screen flex-col">
+      <header>
+        <div class="bg-navy-900 text-white">
+          <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+            <a href="/portal" class="flex min-w-0 items-center gap-2 sm:gap-3" aria-label="포털 메인으로 이동">
+              <span data-branding-wrap="logo" class="branding-logo-box hidden shrink-0">
+                <img id="branding-logo" alt="CI logo" />
+              </span>
+              <span
+                id="branding-ci-mark"
+                class="hidden shrink-0 rounded bg-white/15 px-2 py-0.5 text-[11px] font-semibold sm:text-xs"
+              ></span>
+              <h1 data-branding="system-name" class="truncate text-sm font-bold tracking-tight sm:text-base md:text-lg">
+                철도안전정보종합관리시스템
+              </h1>
+            </a>
+            <div class="flex flex-wrap items-center justify-end gap-2 text-xs sm:text-sm">
+              <a
+                id="portal-admin-link"
+                href="/admin"
+                class="hidden rounded bg-amber-500 px-2 py-1 text-[11px] font-semibold text-navy-900 transition hover:bg-amber-400 sm:text-xs"
+              >
+                관리자
+              </a>
+              <span id="portal-user-name" class="text-gray-100">사용자님</span>
+              <button
+                id="portal-logout-btn"
+                type="button"
+                class="rounded bg-white px-2 py-1 text-[11px] font-semibold text-navy-900 transition hover:bg-gray-100 sm:px-3 sm:text-xs"
+              >
+                로그아웃
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="bg-navy-800 text-white">
+          <nav class="mx-auto max-w-7xl overflow-visible px-4 sm:px-6 lg:px-8" aria-label="주 메뉴">
+            <ul id="portal-nav-list" class="flex items-center gap-6 overflow-visible py-3 text-sm font-medium whitespace-nowrap">
+              <li class="text-gray-300">메뉴 로딩 중...</li>
+            </ul>
+          </nav>
+        </div>
+      </header>
+
+      <main class="flex-1 px-4 py-8 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-7xl">
+          <div class="flex flex-col gap-6 lg:flex-row lg:items-start">
+            <aside id="portal-section-sidebar" class="hidden w-full shrink-0 lg:w-56"></aside>
+            <div class="min-w-0 flex-1">
+              <div id="notice-detail-loading" class="rounded-sm border border-gray-300 bg-white px-6 py-12 text-center text-sm text-gray-500 shadow-sm">
+                공지사항을 불러오는 중...
+              </div>
+              <div id="notice-detail-error" class="hidden rounded-sm border border-red-300 bg-red-50 px-6 py-8 text-center text-sm text-red-600 shadow-sm"></div>
+
+              <article id="notice-detail-content" class="hidden rounded-sm border border-gray-300 bg-white shadow-sm">
+                <div class="border-b border-gray-200 px-6 py-5">
+                  <h2 id="notice-detail-title" class="text-xl font-bold text-gray-900"></h2>
+                  <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
+                    <span id="notice-detail-author"></span>
+                    <span id="notice-detail-date"></span>
+                  </div>
+                </div>
+                <div id="notice-detail-body" class="whitespace-pre-wrap px-6 py-6 text-sm leading-7 text-gray-800"></div>
+                <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 px-6 py-4">
+                  <a href="/notices" class="text-sm font-medium text-navy-800 transition hover:underline">목록으로</a>
+                  <div id="notice-admin-actions" class="hidden flex flex-wrap gap-2">
+                    <button
+                      id="notice-edit-btn"
+                      type="button"
+                      class="rounded bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-600"
+                    >
+                      수정
+                    </button>
+                    <button
+                      id="notice-delete-btn"
+                      type="button"
+                      class="rounded bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/branding.js"></script>
+    <script src="/js/board-layout.js"></script>
+    <script src="/js/menus.js"></script>
+    <script src="/js/notices.js"></script>
+    <script src="/js/notice-admin.js"></script>
+    <script src="/js/notice-detail.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", async () => {
+        if (!requireAuth()) return;
+        bindPortalHeader();
+        try {
+          await Promise.all([loadPortalBranding(), loadPortalMenus()]);
+          initNoticeDetailPage();
+        } catch (error) {
+          console.error("Notice detail init failed:", error);
+        }
+      });
+    </script>
+  </body>
+</html>

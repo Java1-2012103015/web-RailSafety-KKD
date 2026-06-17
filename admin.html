@@ -1,0 +1,1124 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>관리자 포털 | 철도안전정보종합관리시스템</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              navy: { 950: "#12172a", 900: "#1f2747", 800: "#253056", 700: "#2e3a67", 600: "#3d4b80" },
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="/css/branding-logo.css" />
+    <style>
+      .active-tab {
+        background-color: #2e3a67;
+        color: #ffffff !important;
+        font-weight: 600;
+        border-left: 4px solid #f59e0b;
+      }
+      .active-tab * {
+        color: #ffffff !important;
+      }
+      .adbpub-tab-btn {
+        border: 1px solid #d1d5db;
+        border-bottom: none;
+        padding: 8px 16px;
+        background: #f9fafb;
+        font-size: 13px;
+      }
+      .adbpub-tab-btn.active {
+        background: #fff;
+        border-top: 2px solid #253056;
+        font-weight: 600;
+        margin-bottom: -1px;
+        position: relative;
+        z-index: 1;
+      }
+      .adbpub-detail-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      .adbpub-detail-table th,
+      .adbpub-detail-table td {
+        border: 1px solid #d1d5db;
+        padding: 6px 10px;
+        vertical-align: middle;
+      }
+      .adbpub-detail-table th {
+        background: #f3f4f6;
+        font-weight: normal;
+        text-align: left;
+      }
+      .adbpub-detail-input {
+        width: 100%;
+        border: 1px solid #d1d5db;
+        padding: 4px 8px;
+        font-size: 13px;
+        background: #fafafa;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen bg-gray-50 text-gray-800 flex flex-col font-sans">
+    <!-- Top Header -->
+    <header class="bg-navy-900 text-white shadow-md z-10">
+      <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+        <div class="flex items-center gap-3">
+          <span class="rounded bg-amber-500 px-2 py-0.5 text-xs font-bold text-navy-950">System Admin</span>
+          <h1 id="admin-header-title" class="text-base font-bold sm:text-lg tracking-tight">관리자 포털</h1>
+        </div>
+        <div class="flex items-center gap-3 text-sm">
+          <span id="admin-user-name" class="text-gray-200 font-medium">관리자님</span>
+          <button
+            id="admin-back-portal"
+            type="button"
+            class="rounded border border-white/30 px-3 py-1 text-xs font-medium transition hover:bg-white/10 hover:border-white/50"
+          >
+            포털 바로가기
+          </button>
+          <button
+            id="admin-logout-btn"
+            type="button"
+            class="rounded bg-white px-3 py-1 text-xs font-bold text-navy-900 transition hover:bg-gray-100"
+          >
+            로그아웃
+          </button>
+        </div>
+      </div>
+      <div class="bg-navy-800 text-white">
+        <nav class="mx-auto max-w-7xl overflow-visible px-4 sm:px-6 lg:px-8" aria-label="주 메뉴">
+          <ul id="portal-nav-list" class="flex items-center gap-6 overflow-visible py-3 text-sm font-medium whitespace-nowrap">
+            <li class="text-gray-300">메뉴 로딩 중...</li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8 flex flex-col lg:flex-row gap-6">
+      <!-- Sidebar Navigation -->
+      <aside class="w-full lg:w-64 shrink-0">
+        <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm space-y-2">
+          <p class="text-xs font-bold text-gray-400 px-3 uppercase tracking-wider mb-2">관리 메뉴</p>
+          <nav class="space-y-1">
+            <a
+              id="tab-link-branding"
+              href="/admin"
+              class="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition"
+            >
+              <span class="text-base">🎨</span> CI·타이틀 설정
+            </a>
+            <a
+              id="tab-link-users"
+              href="/admin/users"
+              class="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition"
+            >
+              <span class="text-base">👥</span> 회원 관리
+            </a>
+            <a
+              id="tab-link-login-logs"
+              href="/admin/login-logs"
+              class="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition pl-8"
+            >
+              <span class="text-base">📜</span> 로그인 기록
+            </a>
+            <a
+              id="tab-link-registrations"
+              href="/admin/registrations"
+              class="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition"
+            >
+              <span class="text-base">📝</span> 사용등록 신청
+            </a>
+            <a
+              id="tab-link-menus"
+              href="/admin/menus"
+              class="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition"
+            >
+              <span class="text-base">📂</span> 메뉴 관리
+            </a>
+            <a
+              id="tab-link-roles"
+              href="/admin/roles"
+              class="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition"
+            >
+              <span class="text-base">🔑</span> 권한 관리
+            </a>
+            <a
+              id="tab-link-codes"
+              href="/admin/codes"
+              class="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition"
+            >
+              <span class="text-base">🗂️</span> 코드 관리
+            </a>
+            <a
+              id="tab-link-code-relations"
+              href="/admin/code-relations"
+              class="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition"
+            >
+              <span class="text-base">🧩</span> 코드 종속관계 설정
+            </a>
+            <a
+              id="tab-link-accident-db-publication"
+              href="/admin/accident-db-publication"
+              class="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition"
+            >
+              <span class="text-base">🛤️</span> 철도사고 DB 공개
+            </a>
+            <a
+              id="tab-link-investment-disclosure"
+              href="/admin/investment-disclosure"
+              class="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition"
+            >
+              <span class="text-base">📊</span> 철도안전 투자공시
+            </a>
+            <a
+              id="tab-link-external-apis"
+              href="/admin/external-apis"
+              class="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition"
+            >
+              <span class="text-base">🔌</span> 외부 API 관리
+            </a>
+          </nav>
+        </div>
+      </aside>
+
+      <!-- Content Panels -->
+      <main class="flex-1 min-w-0">
+        <!-- Panel 1: CI·타이틀 설정 -->
+        <section id="panel-branding" class="hidden space-y-6">
+          <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 class="text-lg font-bold text-gray-900">역할별 화면 설정</h2>
+            <p class="mt-1 text-sm text-gray-600">
+              로그인 역할마다 브라우저 타이틀·시스템명·CI(로고/마크) 표시 여부를 설정합니다. 공개(기본)은 비로그인 홈·로그인 화면에 적용됩니다.
+            </p>
+            <div class="mt-4 border-b border-gray-100 pb-4">
+              <label for="branding-role-select" class="mb-1 block text-xs font-semibold text-gray-600">역할 선택</label>
+              <select
+                id="branding-role-select"
+                class="w-full max-w-xs rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700"
+              ></select>
+            </div>
+
+            <div class="grid gap-6 lg:grid-cols-2 mt-6">
+              <div class="space-y-4">
+                <h3 class="font-bold text-gray-900 pb-2 border-b border-gray-100">설정 입력</h3>
+                <form id="branding-form" class="space-y-4" onsubmit="return false">
+                  <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700" for="field-pageTitle">브라우저 타이틀</label>
+                    <input id="field-pageTitle" class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700" />
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700" for="field-systemName">헤더 시스템명</label>
+                    <input id="field-systemName" class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700" />
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700" for="field-heroTitle">히어로 제목</label>
+                    <input id="field-heroTitle" class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700" />
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700" for="field-heroSubtitle">히어로 부제</label>
+                    <textarea
+                      id="field-heroSubtitle"
+                      rows="3"
+                      class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700"
+                    ></textarea>
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700" for="field-logoFile">로고 이미지 (PNG)</label>
+                    <input
+                      id="field-logoFile"
+                      type="file"
+                      accept="image/png,.png"
+                      class="block w-full text-sm text-gray-700 file:mr-3 file:rounded file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-navy-800"
+                    />
+                    <input id="field-logoUrl" type="hidden" />
+                    <div id="field-logo-preview-wrap" class="mt-2 hidden">
+                      <span class="branding-logo-box branding-logo-box--preview">
+                        <img id="field-logo-preview" alt="로고 미리보기" />
+                      </span>
+                      <button
+                        id="field-logo-remove-btn"
+                        type="button"
+                        class="mt-2 block text-xs font-semibold text-red-600 hover:text-red-700"
+                      >
+                        로고 제거
+                      </button>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">PNG 파일, 최대 2MB. 표시 시 비율을 유지하며 자동 크기 조절됩니다.</p>
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700" for="field-ciMarkLabel">CI 마크 라벨</label>
+                    <input
+                      id="field-ciMarkLabel"
+                      placeholder="예: 국토교통부"
+                      class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700"
+                    />
+                  </div>
+                  <div class="grid grid-cols-2 gap-3 text-sm pt-2">
+                    <label class="flex items-center gap-2 font-medium text-gray-700 cursor-pointer">
+                      <input id="field-showLogo" type="checkbox" class="h-4 w-4 rounded text-navy-700 border-gray-300" />
+                      로고 표시
+                    </label>
+                    <label class="flex items-center gap-2 font-medium text-gray-700 cursor-pointer">
+                      <input id="field-showCiMark" type="checkbox" class="h-4 w-4 rounded text-navy-700 border-gray-300" />
+                      CI 마크 표시
+                    </label>
+                    <label class="flex items-center gap-2 font-medium text-gray-700 cursor-pointer">
+                      <input id="field-showHero" type="checkbox" class="h-4 w-4 rounded text-navy-700 border-gray-300" />
+                      히어로 영역 표시
+                    </label>
+                    <label class="flex items-center gap-2 font-medium text-gray-700 cursor-pointer">
+                      <input id="field-showFooter" type="checkbox" class="h-4 w-4 rounded text-navy-700 border-gray-300" />
+                      푸터 표시
+                    </label>
+                  </div>
+                  <div class="flex items-center gap-3 pt-4 border-t border-gray-100">
+                    <button
+                      id="branding-save-btn"
+                      type="button"
+                      class="rounded bg-navy-900 px-4 py-2 text-sm font-semibold text-white hover:bg-navy-800 transition"
+                    >
+                      설정 저장
+                    </button>
+                    <span id="save-status" class="text-sm"></span>
+                  </div>
+                </form>
+              </div>
+
+              <div>
+                <h3 class="font-bold text-gray-900 pb-2 border-b border-gray-100">실시간 미리보기</h3>
+                <div class="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-6 space-y-4 shadow-inner">
+                  <div id="branding-preview" class="text-sm text-gray-500">역할을 선택하면 미리보기가 표시됩니다.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Panel 2: 회원 관리 -->
+        <section id="panel-users" class="hidden space-y-6">
+          <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+              <div>
+                <h2 class="text-lg font-bold text-gray-900">사용자 계정 관리</h2>
+                <p class="text-sm text-gray-600 mt-1">시스템에 등록된 사용자 목록을 관리하고 권한을 변경합니다.</p>
+              </div>
+              <button
+                id="btn-create-user"
+                class="rounded bg-navy-900 px-4 py-2 text-sm font-semibold text-white hover:bg-navy-800 transition shadow-sm"
+              >
+                ➕ 신규 회원 등록
+              </button>
+            </div>
+
+            <!-- Users List Table -->
+            <div class="overflow-x-auto border border-gray-200 rounded-lg">
+              <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-6 py-3 text-left font-semibold text-gray-600">ID</th>
+                    <th class="px-6 py-3 text-left font-semibold text-gray-600">이름</th>
+                    <th class="px-6 py-3 text-left font-semibold text-gray-600">이메일</th>
+                    <th class="px-6 py-3 text-left font-semibold text-gray-600">권한 역할</th>
+                    <th class="px-6 py-3 text-left font-semibold text-gray-600">IP 접속</th>
+                    <th class="px-6 py-3 text-left font-semibold text-gray-600">가입일시</th>
+                    <th class="px-6 py-3 text-center font-semibold text-gray-600">작업</th>
+                  </tr>
+                </thead>
+                <tbody id="users-table-body" class="divide-y divide-gray-200 bg-white">
+                  <tr>
+                    <td colspan="7" class="px-6 py-8 text-center text-gray-500">사용자 목록을 불러오는 중...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Panel 3: 메뉴 관리 -->
+        <section id="panel-menus" class="hidden space-y-6">
+          <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 class="text-lg font-bold text-gray-900 mb-1">메뉴 구조 설정</h2>
+            <p class="text-sm text-gray-600 mb-6">사용자 포털 네비게이션 메뉴 구조와 정렬 순서를 관리합니다.</p>
+
+            <div class="grid gap-6 lg:grid-cols-5">
+              <!-- Menu Tree Representation -->
+              <div class="lg:col-span-3 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <h3 class="font-bold text-gray-900 mb-3 text-sm flex items-center justify-between">
+                  <span>메뉴 트리 구조</span>
+                  <button id="btn-refresh-menus" class="text-xs text-navy-700 hover:underline">새로고침</button>
+                </h3>
+                <div id="menus-tree-container" class="space-y-2 text-sm">
+                  <!-- Generated tree here -->
+                </div>
+              </div>
+
+              <!-- Menu Add / Edit Details -->
+              <div class="lg:col-span-2 border border-gray-200 rounded-lg p-5 bg-white space-y-4">
+                <h3 id="menu-form-title" class="font-bold text-gray-900 text-sm border-b border-gray-100 pb-2">새 메뉴 추가</h3>
+                <form id="menu-form" class="space-y-4" onsubmit="return false">
+                  <input type="hidden" id="field-menu-id" />
+                  <div>
+                    <label class="mb-1 block text-xs font-semibold text-gray-700" for="field-menu-title">메뉴명 (Title)</label>
+                    <input id="field-menu-title" required class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700" />
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-xs font-semibold text-gray-700" for="field-menu-path">경로 (Path)</label>
+                    <input id="field-menu-path" placeholder="/example" class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700" />
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-xs font-semibold text-gray-700" for="field-menu-sequence">출력 순서 (Sequence)</label>
+                    <input id="field-menu-sequence" type="number" value="1" required class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700" />
+                  </div>
+                  <div id="field-menu-parent-wrap">
+                    <label class="mb-1 block text-xs font-semibold text-gray-700" for="field-menu-parent">상위 메뉴</label>
+                    <select id="field-menu-parent" class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700">
+                      <option value="">없음 (최상위 메뉴)</option>
+                    </select>
+                  </div>
+                  <div class="flex gap-2 pt-2">
+                    <button
+                      id="btn-menu-submit"
+                      type="submit"
+                      class="flex-1 rounded bg-navy-900 py-2 text-xs font-semibold text-white hover:bg-navy-800 transition"
+                    >
+                      저장하기
+                    </button>
+                    <button
+                      id="btn-menu-cancel"
+                      type="button"
+                      class="rounded border border-gray-300 px-3 py-2 text-xs font-medium hover:bg-gray-50 transition"
+                    >
+                      취소
+                    </button>
+                  </div>
+                  <div id="menu-submit-status" class="text-xs text-center"></div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Panel 4: 권한 관리 -->
+        <section id="panel-roles" class="hidden space-y-6">
+          <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 class="text-lg font-bold text-gray-900 mb-1">역할별 권한 관리</h2>
+            <p class="text-sm text-gray-600 mb-6">사용자 역할에 따른 메뉴 접근 권한 및 사고 조회 데이터 필터링 규칙을 설정합니다.</p>
+
+            <div class="flex items-center gap-3 mb-6 bg-gray-50 p-4 border border-gray-200 rounded-lg">
+              <label for="select-permission-role" class="text-sm font-bold text-gray-700 whitespace-nowrap">설정할 역할 선택:</label>
+              <select id="select-permission-role" class="rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700">
+                <option value="">-- 역할을 선택하세요 --</option>
+              </select>
+              <span id="role-load-status" class="text-xs text-gray-500"></span>
+            </div>
+            <div class="mb-6 rounded-lg border border-gray-200 bg-white p-4">
+              <p class="mb-2 text-sm font-bold text-gray-700">신규 역할 추가</p>
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  id="field-new-role-name"
+                  type="text"
+                  placeholder="예: GUEST_C"
+                  class="w-full max-w-xs rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700"
+                />
+                <button
+                  id="btn-create-role"
+                  type="button"
+                  class="rounded bg-navy-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-navy-800"
+                >
+                  역할 추가
+                </button>
+                <span id="create-role-status" class="text-xs text-gray-500"></span>
+              </div>
+              <p class="mt-1 text-[11px] text-gray-500">한글/영문/숫자/공백/언더스코어(_)/하이픈(-) 사용 가능합니다.</p>
+            </div>
+
+            <div class="mb-6 rounded-lg border border-gray-200 bg-white p-4">
+              <p class="mb-2 text-sm font-bold text-gray-700">권한(역할) 리스트</p>
+              <select
+                id="roles-overview-select"
+                class="w-full max-w-xs rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700"
+              >
+                <option value="">-- 권한을 선택하세요 --</option>
+              </select>
+            </div>
+
+            <div class="mb-6 rounded-lg border border-gray-200 bg-white p-4">
+              <div class="mb-2 flex items-center justify-between">
+                <p class="text-sm font-bold text-gray-700">선택 권한 사용자 목록</p>
+                <span id="role-members-title" class="text-xs text-gray-500">권한을 선택하세요</span>
+              </div>
+              <div id="role-members-list" class="space-y-1 text-sm">
+                <p class="text-xs text-gray-500">권한 리스트에서 역할을 선택하면 사용자 목록이 표시됩니다.</p>
+              </div>
+            </div>
+
+            <div class="mb-6 rounded-lg border border-gray-200 bg-white p-4">
+              <p class="mb-2 text-sm font-bold text-gray-700">선택 권한 수정/삭제</p>
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  id="field-edit-role-name"
+                  type="text"
+                  placeholder="권한을 선택하세요"
+                  class="w-full max-w-xs rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700"
+                />
+                <button
+                  id="btn-update-role"
+                  type="button"
+                  class="rounded bg-amber-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-amber-600"
+                >
+                  권한명 수정
+                </button>
+                <button
+                  id="btn-delete-role"
+                  type="button"
+                  class="rounded bg-red-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-red-700"
+                >
+                  권한 삭제
+                </button>
+                <span id="edit-role-status" class="text-xs text-gray-500"></span>
+              </div>
+            </div>
+
+            <!-- Permission Panels (only visible when a role is selected) -->
+            <div id="role-permissions-config-wrap" class="hidden space-y-6">
+              <div class="grid gap-6 lg:grid-cols-2">
+                <!-- Menu Permissions Checklist -->
+                <div class="border border-gray-200 rounded-lg p-5 bg-white">
+                  <h3 class="font-bold text-gray-900 text-sm border-b border-gray-100 pb-2 flex justify-between items-center">
+                    <span>메뉴 접근 권한 설정</span>
+                    <button id="btn-save-menu-perms" class="rounded bg-navy-900 px-3 py-1 text-xs font-semibold text-white hover:bg-navy-800 transition shadow-sm">
+                      저장
+                    </button>
+                  </h3>
+                  <div id="menu-permissions-tree" class="mt-4 space-y-2 text-sm max-h-[400px] overflow-y-auto">
+                    <!-- Tree checklist generated here -->
+                  </div>
+                  <div id="menu-perms-status" class="text-xs mt-2 text-right"></div>
+                </div>
+
+                <!-- Query Filters Permissions -->
+                <div class="border border-gray-200 rounded-lg p-5 bg-white space-y-4">
+                  <h3 class="font-bold text-gray-900 text-sm border-b border-gray-100 pb-2 flex justify-between items-center">
+                    <span>조회 조건 설정</span>
+                    <button id="btn-save-query-perms" class="rounded bg-navy-900 px-3 py-1 text-xs font-semibold text-white hover:bg-navy-800 transition shadow-sm">
+                      저장
+                    </button>
+                  </h3>
+                  
+                  <div class="space-y-4 mt-4 text-sm text-gray-700">
+                    <div>
+                      <label class="block text-xs font-bold text-gray-700 mb-1">동작 모드 (Enforcement Mode)</label>
+                      <div class="flex gap-4">
+                        <label class="flex items-center gap-1.5 cursor-pointer">
+                          <input type="radio" name="query-enforcement" value="OVERWRITE" /> OVERWRITE (강제 필터)
+                        </label>
+                        <label class="flex items-center gap-1.5 cursor-pointer">
+                          <input type="radio" name="query-enforcement" value="BLOCK" /> BLOCK (위반시 접근 차단)
+                        </label>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                      <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1" for="field-query-minDate">조회 시작일</label>
+                        <input id="field-query-minDate" type="date" class="w-full rounded border border-gray-300 px-3 py-2 text-xs" />
+                      </div>
+                      <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1" for="field-query-maxDate">조회 종료일</label>
+                        <input id="field-query-maxDate" type="date" class="w-full rounded border border-gray-300 px-3 py-2 text-xs" />
+                      </div>
+                    </div>
+
+                    <div class="rounded border border-gray-200 bg-gray-50 p-3">
+                      <label class="block text-xs font-bold text-gray-700 mb-2">기관 / 노선 / 역 선택 (트리)</label>
+                      <div class="rounded border border-gray-200 bg-white p-2 text-xs">
+                        <div class="mb-2 text-[11px] text-gray-500">상위 체크 시 하위 항목이 모두 선택됩니다. ＋/－ 버튼으로 기관·노선을 펼치거나 접을 수 있습니다.</div>
+                        <div id="query-location-tree" class="max-h-80 overflow-y-auto pr-1"></div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label class="block text-xs font-bold text-gray-700 mb-1">허용 사고 유형 (엑셀 L컬럼 · 사고 종류)</label>
+                      <div id="accident-types-checklist" class="grid grid-cols-2 gap-2 mt-1">
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" value="사고" /> 사고</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" value="준사고" /> 준사고</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" value="운행장애" /> 운행장애</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" value="운행장애(관리)" /> 운행장애(관리)</label>
+                      </div>
+                    </div>
+
+                  </div>
+                  <div id="query-perms-status" class="text-xs text-right mt-2"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Panel 5: 코드 관리 -->
+        <section id="panel-codes" class="hidden space-y-6">
+          <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 class="text-lg font-bold text-gray-900 mb-1">기관/노선/역 코드 관리</h2>
+            <p class="text-sm text-gray-600 mb-6">샘플 다운로드, CSV 업로드, 현재 코드 다운로드를 지원합니다.</p>
+
+            <div class="mb-5 flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:flex-row sm:items-center">
+              <label for="code-csv-type" class="text-sm font-semibold text-gray-700">코드 구분</label>
+              <select id="code-csv-type" class="w-full max-w-xs rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700">
+                <option value="institutions">기관</option>
+                <option value="lines">노선</option>
+                <option value="stations">역</option>
+              </select>
+              <button id="btn-code-download-sample" type="button" class="rounded border border-gray-300 px-3 py-2 text-xs font-semibold hover:bg-gray-100">샘플 다운 (CSV)</button>
+              <button id="btn-code-download-current" type="button" class="rounded border border-gray-300 px-3 py-2 text-xs font-semibold hover:bg-gray-100">현재코드 다운로드 (CSV)</button>
+            </div>
+
+            <div class="mb-5 rounded-lg border border-gray-200 bg-white p-4">
+              <p class="mb-2 text-sm font-semibold text-gray-700">DB 업로드 (CSV)</p>
+              <input id="code-csv-file" type="file" accept=".csv,text/csv" class="mb-3 block w-full text-sm text-gray-700" />
+              <button id="btn-code-upload" type="button" class="rounded bg-navy-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-navy-800">DB 업로드 (CSV)</button>
+              <span id="code-upload-status" class="ml-3 text-xs text-gray-500"></span>
+            </div>
+
+            <div class="rounded-lg border border-gray-200 bg-white p-4">
+              <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <p class="text-sm font-semibold text-gray-700">현재 코드 트리</p>
+                <button id="btn-code-tree-download-xlsx" type="button" class="rounded border border-gray-300 px-3 py-1.5 text-xs font-semibold hover:bg-gray-100">코드 트리 엑셀 다운 (XLSX)</button>
+              </div>
+              <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <label class="flex items-center gap-2 text-xs text-gray-700">
+                  <span class="font-semibold whitespace-nowrap">기관</span>
+                  <select id="code-tree-inst-filter" class="w-full min-w-[160px] max-w-xs rounded border border-gray-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-navy-700">
+                    <option value="">전체</option>
+                  </select>
+                </label>
+                <label class="flex items-center gap-2 text-xs text-gray-700">
+                  <span class="font-semibold whitespace-nowrap">노선</span>
+                  <select id="code-tree-line-filter" class="w-full min-w-[160px] max-w-xs rounded border border-gray-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-navy-700">
+                    <option value="">전체</option>
+                  </select>
+                </label>
+              </div>
+              <div class="mb-2 text-[11px] text-gray-500">＋/－ 버튼으로 기관·노선을 펼치거나 접을 수 있습니다.</div>
+              <div id="code-tree-preview" class="max-h-96 overflow-y-auto pr-1 text-xs text-gray-700">코드 정보를 불러오는 중...</div>
+            </div>
+
+            <div class="mt-5 rounded-lg border border-gray-200 bg-white p-4">
+              <div class="mb-3 flex items-center justify-between gap-2">
+                <p class="text-sm font-semibold text-gray-700">코드 테이블 편집 (임시)</p>
+                <span class="text-[11px] text-gray-500">UI에서 행 추가/삭제 테스트용</span>
+              </div>
+              <div class="mb-3 flex flex-wrap gap-2">
+                <button id="btn-code-table-org" type="button" class="code-table-tab rounded border border-navy-700 bg-navy-700 px-3 py-1 text-xs font-semibold text-white">기관</button>
+                <button id="btn-code-table-line" type="button" class="code-table-tab rounded border border-gray-300 bg-white px-3 py-1 text-xs font-semibold text-gray-700">노선</button>
+                <button id="btn-code-table-station" type="button" class="code-table-tab rounded border border-gray-300 bg-white px-3 py-1 text-xs font-semibold text-gray-700">역</button>
+              </div>
+
+              <div class="overflow-x-auto rounded border border-gray-200">
+                <table class="min-w-full border-collapse text-xs">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th class="border border-gray-200 px-3 py-2 text-left font-semibold">코드구분</th>
+                      <th class="border border-gray-200 px-3 py-2 text-left font-semibold">코드</th>
+                      <th class="border border-gray-200 px-3 py-2 text-left font-semibold">값</th>
+                      <th class="border border-gray-200 px-3 py-2 text-center font-semibold">동작</th>
+                    </tr>
+                  </thead>
+                  <tbody id="code-editor-table-body" class="bg-white"></tbody>
+                </table>
+              </div>
+
+              <div class="mt-3 flex items-center gap-2">
+                <button id="btn-code-row-add" type="button" class="rounded bg-navy-900 px-3 py-1 text-xs font-semibold text-white hover:bg-navy-800">행 추가</button>
+                <button id="btn-code-table-reset" type="button" class="rounded border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-100">샘플로 초기화</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="panel-code-relations" class="hidden space-y-6">
+          <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 class="text-lg font-bold text-gray-900 mb-1">코드 종속관계 설정</h2>
+            <p class="text-sm text-gray-600 mb-5">드래그 앤 드롭으로 회사-노선-역 종속관계를 설정합니다.</p>
+
+            <div class="grid gap-6 lg:grid-cols-2">
+              <div class="rounded-lg border border-gray-200 p-4">
+                <div class="flex items-center justify-between border-b border-gray-100 pb-2">
+                  <h3 class="text-sm font-semibold text-gray-800">좌측 패널: 트리 현황</h3>
+                  <button id="btn-code-relations-unassign" type="button" class="rounded border border-gray-300 px-2 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-100">
+                    선택 역 미배치
+                  </button>
+                </div>
+                <div class="mt-3 rounded border border-gray-200 bg-gray-50 p-2">
+                  <div class="mb-2 text-[11px] text-gray-500">역은 노선 노드에만 드롭 가능, Shift+클릭으로 다중 선택 후 일괄 이동.</div>
+                  <div id="code-relation-tree-panel" class="max-h-[430px] overflow-y-auto pr-1 text-xs"></div>
+                </div>
+              </div>
+
+              <div class="rounded-lg border border-gray-200 p-4">
+                <h3 class="text-sm font-semibold text-gray-800 border-b border-gray-100 pb-2">우측 패널: 역 코드 리스트</h3>
+                <div class="mt-3 rounded border border-gray-200 bg-gray-50 p-2">
+                  <div class="mb-2 grid grid-cols-1 gap-2 md:grid-cols-3">
+                    <select id="code-relation-right-layer-select" class="w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-navy-700">
+                      <option value="institution">회사</option>
+                      <option value="line">노선</option>
+                      <option value="station" selected>역</option>
+                    </select>
+                    <select id="code-relation-right-company-filter" class="w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-navy-700">
+                      <option value="">전체 회사</option>
+                    </select>
+                    <select id="code-relation-right-line-filter" class="w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-navy-700">
+                      <option value="">전체 노선</option>
+                    </select>
+                  </div>
+                  <input
+                    id="code-relation-search-input"
+                    type="text"
+                    placeholder="코드/이름 검색"
+                    class="mb-2 w-full rounded border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-navy-700"
+                  />
+                  <div class="mb-2 text-[11px] text-gray-500">좌↔우 드래그 가능. 다른 레이어 항목에 드롭하면 해당 항목의 하위로 종속됩니다.</div>
+                  <div id="code-relation-right-list" class="max-h-[430px] overflow-y-auto pr-1 text-xs"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-4 flex items-center gap-3">
+              <button id="btn-code-relations-save" type="button" class="rounded bg-navy-900 px-4 py-2 text-xs font-semibold text-white hover:bg-navy-800">
+                저장
+              </button>
+              <button id="btn-code-relations-reload" type="button" class="rounded border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100">
+                다시 불러오기
+              </button>
+              <button id="btn-code-relations-download-xlsx" type="button" class="rounded border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100">
+                엑셀 다운 (XLSX)
+              </button>
+              <span id="code-relations-status" class="text-xs text-gray-500"></span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Panel: 로그인 기록 -->
+        <section id="panel-login-logs" class="hidden space-y-6">
+          <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <div class="mb-6">
+              <h2 class="text-lg font-bold text-gray-900">로그인 기록</h2>
+              <p class="mt-1 text-sm text-gray-600">사용자 로그인 성공·실패 이력을 조회합니다. (IP, 브라우저 정보 포함)</p>
+            </div>
+
+            <form id="login-logs-filter-form" class="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <div>
+                <label for="login-logs-filter-email" class="mb-1 block text-xs font-semibold text-gray-600">이메일</label>
+                <input
+                  id="login-logs-filter-email"
+                  type="search"
+                  placeholder="이메일 검색"
+                  class="w-48 rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700"
+                />
+              </div>
+              <div>
+                <label for="login-logs-filter-status" class="mb-1 block text-xs font-semibold text-gray-600">결과</label>
+                <select
+                  id="login-logs-filter-status"
+                  class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700"
+                >
+                  <option value="">전체</option>
+                  <option value="SUCCESS">성공</option>
+                  <option value="FAILURE">실패</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                class="rounded bg-navy-900 px-4 py-2 text-sm font-semibold text-white hover:bg-navy-800"
+              >
+                조회
+              </button>
+              <button
+                id="login-logs-filter-reset"
+                type="button"
+                class="rounded border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-white"
+              >
+                초기화
+              </button>
+            </form>
+
+            <p id="login-logs-summary" class="mb-3 text-xs text-gray-500">-</p>
+
+            <div class="overflow-x-auto rounded-lg border border-gray-200">
+              <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">일시</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">이메일</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">이름</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">역할</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-600">결과</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">IP</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">실패 사유</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">브라우저</th>
+                  </tr>
+                </thead>
+                <tbody id="login-logs-table-body" class="divide-y divide-gray-200 bg-white">
+                  <tr>
+                    <td colspan="8" class="px-6 py-8 text-center text-gray-500">기록을 불러오는 중...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <button
+                id="login-logs-prev"
+                type="button"
+                class="rounded border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                disabled
+              >
+                이전
+              </button>
+              <span id="login-logs-page-info" class="text-xs text-gray-600">-</span>
+              <button
+                id="login-logs-next"
+                type="button"
+                class="rounded border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                disabled
+              >
+                다음
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Panel: 사용등록 신청 -->
+        <section id="panel-registrations" class="hidden space-y-6">
+          <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <div class="mb-6">
+              <h2 class="text-lg font-bold text-gray-900">사용등록 신청 관리</h2>
+              <p class="mt-1 text-sm text-gray-600">신청된 계정을 검토하고 권한(역할)을 지정해 승인합니다.</p>
+            </div>
+
+            <div class="overflow-x-auto rounded-lg border border-gray-200">
+              <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">ID</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">이메일</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">성함</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">소속</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">신청일</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">권한 지정</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-600">작업</th>
+                  </tr>
+                </thead>
+                <tbody id="registrations-table-body" class="divide-y divide-gray-200 bg-white">
+                  <tr>
+                    <td colspan="7" class="px-6 py-8 text-center text-gray-500">신청 목록을 불러오는 중...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Panel: 철도사고 DB 공개 -->
+        <section id="panel-accident-db-publication" class="hidden space-y-6">
+          <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 class="text-lg font-bold text-gray-900">철도사고 DB 공개 설정</h2>
+            <p class="mt-1 text-sm text-gray-600">
+              철도사고 DB 상세 화면에 노출할 컬럼을 권한(역할)별로 설정합니다. 체크 해제된 항목은 해당 권한 사용자에게 표시되지 않습니다.
+            </p>
+
+            <div class="mt-4 flex flex-wrap items-end gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <div>
+                <label for="adbpub-role-select" class="mb-1 block text-xs font-bold text-gray-600">권한</label>
+                <select
+                  id="adbpub-role-select"
+                  class="min-w-[200px] rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700"
+                ></select>
+              </div>
+              <button
+                id="adbpub-save-btn"
+                type="button"
+                class="rounded bg-navy-900 px-4 py-2 text-sm font-semibold text-white hover:bg-navy-800"
+              >
+                설정 저장
+              </button>
+              <span id="adbpub-save-status" class="text-xs text-gray-500"></span>
+            </div>
+
+            <div class="mt-4 rounded-lg border border-gray-200 bg-white p-4">
+              <p class="text-xs font-bold uppercase tracking-wide text-gray-500">승인된 컬럼</p>
+              <div id="adbpub-approved-groups" class="mt-2 flex flex-wrap gap-2"></div>
+            </div>
+
+            <div class="mt-6">
+              <p class="mb-2 text-sm font-bold text-gray-900">상세 화면 미리보기 (컬럼별 공개 여부)</p>
+              <div id="adbpub-group-tabs" class="flex flex-wrap border-b border-gray-300"></div>
+              <div id="adbpub-group-panel" class="border border-gray-300 border-t-0 bg-white p-4 min-h-[320px]"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Panel: 철도안전 투자공시 -->
+        <section id="panel-investment-disclosure" class="hidden space-y-6">
+          <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 class="text-lg font-bold text-gray-900 mb-1">철도안전 투자공시 데이터 관리</h2>
+            <p class="text-sm text-gray-600 mb-4">
+              CSV를 업로드하면 기존 공시 데이터를 교체합니다. 포털 「대시보드 · 철도안전투자공시」와 「철도 데이터베이스 · 철도안전 투자공시 DB」에서 동일 데이터를 사용합니다.
+            </p>
+            <p id="inv-admin-info" class="mb-4 text-xs text-gray-600 rounded border border-gray-200 bg-gray-50 px-3 py-2">현황 로딩 중...</p>
+
+            <div class="mb-4 flex flex-wrap gap-2">
+              <button id="btn-inv-download-sample" type="button" class="rounded border border-gray-300 px-3 py-2 text-xs font-semibold hover:bg-gray-100">샘플 CSV 다운로드</button>
+              <button id="btn-inv-download-current" type="button" class="rounded border border-gray-300 px-3 py-2 text-xs font-semibold hover:bg-gray-100">현재 데이터 CSV 다운로드</button>
+            </div>
+
+            <div class="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <p class="text-sm font-semibold text-gray-700 mb-2">파일 인코딩 (한글 깨짐 시 변경)</p>
+              <div class="flex gap-2">
+                <button type="button" data-inv-encoding="EUC-KR" class="inv-encoding-btn rounded px-3 py-1.5 text-xs font-bold bg-navy-900 text-white">EUC-KR</button>
+                <button type="button" data-inv-encoding="UTF-8" class="inv-encoding-btn rounded px-3 py-1.5 text-xs font-bold border border-gray-300">UTF-8</button>
+              </div>
+            </div>
+
+            <div class="rounded-lg border border-gray-200 bg-white p-4">
+              <p class="mb-2 text-sm font-semibold text-gray-700">DB 업로드 (CSV)</p>
+              <p class="mb-2 text-xs text-gray-500">세로형(연도구분·금액) 또는 가로형(2023~2028 열) 모두 지원합니다.</p>
+              <input id="inv-csv-file" type="file" accept=".csv,text/csv" class="mb-3 block w-full text-sm text-gray-700" />
+              <button id="btn-inv-upload" type="button" class="rounded bg-navy-900 px-4 py-2 text-xs font-semibold text-white hover:bg-navy-800">DB 업로드 (전체 교체)</button>
+              <span id="inv-upload-status" class="ml-3 text-xs text-gray-500"></span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Panel: 외부 API 관리 -->
+        <section id="panel-external-apis" class="hidden space-y-6">
+          <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <div class="mb-6">
+              <h2 class="text-lg font-bold text-gray-900">외부 API 관리</h2>
+              <p class="mt-1 text-sm text-gray-600">
+                철도사고 DB 등록 화면에서 사용할 외부 연동 API 키·엔드포인트를 설정합니다.
+              </p>
+            </div>
+
+            <div class="grid gap-6 lg:grid-cols-2">
+              <form
+                id="external-api-form-ROAD_ADDRESS"
+                class="external-api-form rounded-lg border border-gray-200 bg-gray-50 p-5"
+                data-api-type="ROAD_ADDRESS"
+                onsubmit="return false"
+              >
+                <div class="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 class="font-bold text-gray-900">도로명주소 등록 API</h3>
+                    <p class="mt-1 text-sm text-gray-600">행정안전부 도로명주소 API — 발생장소 주소 등록·검증</p>
+                  </div>
+                  <span id="external-api-status-ROAD_ADDRESS" class="shrink-0 rounded bg-gray-200 px-2 py-0.5 text-xs font-semibold text-gray-700">미설정</span>
+                </div>
+                <label class="mb-3 flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <input id="external-api-enabled-ROAD_ADDRESS" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-navy-700" />
+                  사용 여부
+                </label>
+                <div class="space-y-3">
+                  <div>
+                    <label class="mb-1 block text-xs font-semibold text-gray-700" for="external-api-endpoint-ROAD_ADDRESS">API 엔드포인트 URL</label>
+                    <input
+                      id="external-api-endpoint-ROAD_ADDRESS"
+                      type="url"
+                      placeholder="https://business.juso.go.kr/addrlink/addrLinkApi.do"
+                      class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700"
+                    />
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-xs font-semibold text-gray-700" for="external-api-key-ROAD_ADDRESS">인증키 (API Key)</label>
+                    <input
+                      id="external-api-key-ROAD_ADDRESS"
+                      type="password"
+                      autocomplete="off"
+                      placeholder="발급받은 승인키 입력"
+                      class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700"
+                    />
+                  </div>
+                </div>
+                <div class="mt-4 flex items-center justify-between gap-3 border-t border-gray-200 pt-4">
+                  <p id="external-api-message-ROAD_ADDRESS" class="text-xs text-gray-500"></p>
+                  <button type="submit" class="btn-save-external-api rounded bg-navy-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-navy-800">저장</button>
+                </div>
+              </form>
+
+              <form
+                id="external-api-form-MAP_ADDRESS"
+                class="external-api-form rounded-lg border border-gray-200 bg-gray-50 p-5"
+                data-api-type="MAP_ADDRESS"
+                onsubmit="return false"
+              >
+                <div class="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 class="font-bold text-gray-900">지도 주소 검색 API</h3>
+                    <p class="mt-1 text-sm text-gray-600">지도에서 위치 선택 후 주소·좌표를 사고 DB에 반영</p>
+                  </div>
+                  <span id="external-api-status-MAP_ADDRESS" class="shrink-0 rounded bg-gray-200 px-2 py-0.5 text-xs font-semibold text-gray-700">미설정</span>
+                </div>
+                <label class="mb-3 flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <input id="external-api-enabled-MAP_ADDRESS" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-navy-700" />
+                  사용 여부
+                </label>
+                <div class="space-y-3">
+                  <div>
+                    <label class="mb-1 block text-xs font-semibold text-gray-700" for="external-api-endpoint-MAP_ADDRESS">API 엔드포인트 URL</label>
+                    <input
+                      id="external-api-endpoint-MAP_ADDRESS"
+                      type="url"
+                      placeholder="https://..."
+                      class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700"
+                    />
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-xs font-semibold text-gray-700" for="external-api-key-MAP_ADDRESS">인증키 (API Key / App Key)</label>
+                    <input
+                      id="external-api-key-MAP_ADDRESS"
+                      type="password"
+                      autocomplete="off"
+                      placeholder="지도 API 키 입력"
+                      class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700"
+                    />
+                  </div>
+                </div>
+                <div class="mt-4 flex items-center justify-between gap-3 border-t border-gray-200 pt-4">
+                  <p id="external-api-message-MAP_ADDRESS" class="text-xs text-gray-500"></p>
+                  <button type="submit" class="btn-save-external-api rounded bg-navy-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-navy-800">저장</button>
+                </div>
+              </form>
+
+              <form
+                id="external-api-form-WEATHER"
+                class="external-api-form rounded-lg border border-gray-200 bg-gray-50 p-5 lg:col-span-2"
+                data-api-type="WEATHER"
+                onsubmit="return false"
+              >
+                <div class="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 class="font-bold text-gray-900">기상정보 API</h3>
+                    <p class="mt-1 text-sm text-gray-600">사고 개소·일시 기준 기온, 강수, 적설, 풍속 등 기상 데이터 자동 조회</p>
+                  </div>
+                  <span id="external-api-status-WEATHER" class="shrink-0 rounded bg-gray-200 px-2 py-0.5 text-xs font-semibold text-gray-700">미설정</span>
+                </div>
+                <label class="mb-3 flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <input id="external-api-enabled-WEATHER" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-navy-700" />
+                  사용 여부
+                </label>
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label class="mb-1 block text-xs font-semibold text-gray-700" for="external-api-endpoint-WEATHER">API 엔드포인트 URL</label>
+                    <input
+                      id="external-api-endpoint-WEATHER"
+                      type="url"
+                      placeholder="https://apis.data.go.kr/..."
+                      class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700"
+                    />
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-xs font-semibold text-gray-700" for="external-api-key-WEATHER">인증키 (Service Key)</label>
+                    <input
+                      id="external-api-key-WEATHER"
+                      type="password"
+                      autocomplete="off"
+                      placeholder="공공데이터포털 서비스키 입력"
+                      class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700"
+                    />
+                  </div>
+                </div>
+                <div class="mt-4 flex items-center justify-between gap-3 border-t border-gray-200 pt-4">
+                  <p id="external-api-message-WEATHER" class="text-xs text-gray-500"></p>
+                  <button type="submit" class="btn-save-external-api rounded bg-navy-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-navy-800">저장</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Modals -->
+    <!-- User Creation / Editing Modal -->
+    <div id="modal-user" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/40 p-4">
+      <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl space-y-4">
+        <h3 id="modal-user-title" class="text-base font-bold text-gray-900 border-b border-gray-100 pb-2">회원 추가/수정</h3>
+        <form id="form-user" class="space-y-4" onsubmit="return false">
+          <input type="hidden" id="field-user-id" />
+          <div>
+            <label class="mb-1 block text-xs font-semibold text-gray-700" for="field-user-email">이메일 계정 (Email)</label>
+            <input id="field-user-email" type="text" required class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700" />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-semibold text-gray-700" for="field-user-name">이름 (Name)</label>
+            <input id="field-user-name" type="text" required class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700" />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-semibold text-gray-700" for="field-user-password">비밀번호 (Password)</label>
+            <input id="field-user-password" type="password" placeholder="변경 시에만 입력" class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700" />
+            <p id="field-user-password-hint" class="text-[10px] text-gray-500 mt-1 hidden">※ 비워두면 기존 비밀번호가 유지됩니다.</p>
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-semibold text-gray-700" for="field-user-role">역할 권한 (Role)</label>
+            <select id="field-user-role" required class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700">
+              <!-- Roles options populated here -->
+            </select>
+          </div>
+          <div class="rounded border border-gray-200 bg-gray-50 p-3 space-y-3">
+            <label class="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+              <input id="field-user-ip-restriction" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-navy-700" />
+              IP 고정 (등록 IP에서만 접속)
+            </label>
+            <div>
+              <label class="mb-1 block text-xs font-semibold text-gray-700" for="field-user-allowed-ip">허용 IP</label>
+              <input
+                id="field-user-allowed-ip"
+                type="text"
+                placeholder="예: 192.168.0.10"
+                disabled
+                class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-navy-700 disabled:bg-gray-100 disabled:text-gray-400"
+              />
+              <p class="mt-1 text-[10px] text-gray-500">체크 시 해당 IP에서만 로그인 및 API 접속이 가능합니다.</p>
+            </div>
+          </div>
+          <div class="flex justify-end gap-2 pt-2 border-t border-gray-100">
+            <button
+              id="btn-user-submit"
+              type="submit"
+              class="rounded bg-navy-900 px-4 py-2 text-xs font-semibold text-white hover:bg-navy-800 transition"
+            >
+              확인
+            </button>
+            <button
+              id="btn-user-close"
+              type="button"
+              class="rounded border border-gray-300 px-4 py-2 text-xs font-medium hover:bg-gray-50 transition"
+            >
+              닫기
+            </button>
+          </div>
+          <div id="modal-user-status" class="text-xs text-center"></div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/menus.js"></script>
+    <script src="/js/query-location-scope.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="/js/accident-db-columns.js"></script>
+    <script src="/js/admin-accident-db-publication.js"></script>
+    <script src="/js/admin.js"></script>
+  </body>
+</html>

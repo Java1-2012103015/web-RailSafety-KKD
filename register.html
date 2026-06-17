@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>사용등록 신청 | 철도안전정보종합관리시스템</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              navy: { 900: "#1f2747", 800: "#253056", 700: "#2e3a67" },
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="/css/branding-logo.css" />
+  </head>
+  <body class="min-h-screen bg-gray-100 text-gray-800">
+    <div class="flex min-h-screen flex-col">
+      <header class="bg-navy-900 text-white">
+        <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <div class="flex items-center gap-2">
+            <span data-branding-wrap="logo" class="branding-logo-box hidden shrink-0">
+              <img id="branding-logo" alt="CI logo" />
+            </span>
+            <h1 data-branding="system-name" class="text-base font-bold sm:text-lg">철도안전정보종합관리시스템</h1>
+          </div>
+          <a href="/login" class="text-sm text-gray-200 transition hover:text-white">로그인</a>
+        </div>
+      </header>
+
+      <main class="flex flex-1 items-center justify-center px-4 py-10">
+        <div class="w-full max-w-md rounded-sm border border-gray-300 bg-white p-6 shadow-sm sm:p-8">
+          <h2 class="text-xl font-bold text-gray-900">사용등록 신청</h2>
+          <p class="mt-2 text-sm text-gray-600">정보 입력 후 관리자 승인을 기다려 주세요.</p>
+
+          <form id="register-form" class="mt-6 space-y-4">
+            <div>
+              <label for="reg-email" class="mb-1 block text-sm font-medium text-gray-700">이메일(ID)</label>
+              <div class="flex gap-2">
+                <input
+                  id="reg-email"
+                  type="email"
+                  required
+                  autocomplete="username"
+                  class="min-w-0 flex-1 rounded border border-gray-300 px-3 py-2 text-sm outline-none ring-navy-700 focus:ring-2"
+                />
+                <button
+                  id="reg-check-email-btn"
+                  type="button"
+                  class="shrink-0 rounded border border-navy-900 px-3 py-2 text-xs font-semibold text-navy-900 transition hover:bg-navy-900 hover:text-white"
+                >
+                  중복확인
+                </button>
+              </div>
+              <p id="reg-email-status" class="mt-1 hidden text-xs"></p>
+            </div>
+
+            <div>
+              <label for="reg-affiliation" class="mb-1 block text-sm font-medium text-gray-700">소속</label>
+              <input
+                id="reg-affiliation"
+                type="text"
+                required
+                class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none ring-navy-700 focus:ring-2"
+              />
+            </div>
+
+            <div>
+              <label for="reg-name" class="mb-1 block text-sm font-medium text-gray-700">성함</label>
+              <input
+                id="reg-name"
+                type="text"
+                required
+                class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none ring-navy-700 focus:ring-2"
+              />
+            </div>
+
+            <div>
+              <label for="reg-password" class="mb-1 block text-sm font-medium text-gray-700">비밀번호</label>
+              <input
+                id="reg-password"
+                type="password"
+                required
+                minlength="6"
+                autocomplete="new-password"
+                class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none ring-navy-700 focus:ring-2"
+              />
+            </div>
+
+            <div>
+              <label for="reg-password-confirm" class="mb-1 block text-sm font-medium text-gray-700">비밀번호 확인</label>
+              <input
+                id="reg-password-confirm"
+                type="password"
+                required
+                minlength="6"
+                autocomplete="new-password"
+                class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none ring-navy-700 focus:ring-2"
+              />
+            </div>
+
+            <p id="register-error" class="hidden text-sm text-red-600"></p>
+            <p id="register-success" class="hidden text-sm text-green-700"></p>
+
+            <button
+              type="submit"
+              id="register-submit"
+              class="w-full rounded bg-navy-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-navy-800 disabled:opacity-60"
+            >
+              신청하기
+            </button>
+
+            <a
+              href="/login"
+              class="block w-full rounded border border-gray-300 px-4 py-2.5 text-center text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            >
+              로그인으로 돌아가기
+            </a>
+          </form>
+        </div>
+      </main>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/branding.js"></script>
+    <script src="/js/register.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        loadPublicBranding().catch((error) => console.error("Branding load failed:", error));
+        initRegisterPage();
+      });
+    </script>
+  </body>
+</html>

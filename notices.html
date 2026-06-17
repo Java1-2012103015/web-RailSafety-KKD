@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>공지사항 | 철도안전정보종합관리시스템</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              navy: {
+                900: "#1f2747",
+                800: "#253056",
+                700: "#2e3a67",
+              },
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="/css/branding-logo.css" />
+  </head>
+  <body class="min-h-screen overflow-x-hidden bg-gray-100 text-gray-800">
+    <div class="flex min-h-screen flex-col">
+      <header>
+        <div class="bg-navy-900 text-white">
+          <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+            <a href="/portal" class="flex min-w-0 items-center gap-2 sm:gap-3" aria-label="포털 메인으로 이동">
+              <span data-branding-wrap="logo" class="branding-logo-box hidden shrink-0">
+                <img id="branding-logo" alt="CI logo" />
+              </span>
+              <span
+                id="branding-ci-mark"
+                class="hidden shrink-0 rounded bg-white/15 px-2 py-0.5 text-[11px] font-semibold sm:text-xs"
+              ></span>
+              <h1 data-branding="system-name" class="truncate text-sm font-bold tracking-tight sm:text-base md:text-lg">
+                철도안전정보종합관리시스템
+              </h1>
+            </a>
+            <div class="flex flex-wrap items-center justify-end gap-2 text-xs sm:text-sm">
+              <a
+                id="portal-admin-link"
+                href="/admin"
+                class="hidden rounded bg-amber-500 px-2 py-1 text-[11px] font-semibold text-navy-900 transition hover:bg-amber-400 sm:text-xs"
+              >
+                관리자
+              </a>
+              <span id="portal-user-name" class="text-gray-100">사용자님</span>
+              <button
+                id="portal-logout-btn"
+                type="button"
+                class="rounded bg-white px-2 py-1 text-[11px] font-semibold text-navy-900 transition hover:bg-gray-100 sm:px-3 sm:text-xs"
+              >
+                로그아웃
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="bg-navy-800 text-white">
+          <nav class="mx-auto max-w-7xl overflow-visible px-4 sm:px-6 lg:px-8" aria-label="주 메뉴">
+            <ul id="portal-nav-list" class="flex items-center gap-6 overflow-visible py-3 text-sm font-medium whitespace-nowrap">
+              <li class="text-gray-300">메뉴 로딩 중...</li>
+            </ul>
+          </nav>
+        </div>
+      </header>
+
+      <main class="flex-1 px-4 py-8 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-7xl">
+          <div class="flex flex-col gap-6 lg:flex-row lg:items-start">
+            <aside id="portal-section-sidebar" class="hidden w-full shrink-0 lg:w-56"></aside>
+            <div class="min-w-0 flex-1">
+              <div class="mb-4 flex items-center justify-between gap-4">
+                <h2 class="text-xl font-bold text-gray-900">공지사항</h2>
+                <div class="flex items-center gap-2">
+                  <button
+                    id="notice-create-btn"
+                    type="button"
+                    class="hidden rounded bg-navy-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-navy-800"
+                  >
+                    공지 등록
+                  </button>
+                  <a href="/portal" class="text-sm text-gray-600 transition hover:text-navy-800">대시보드로</a>
+                </div>
+              </div>
+
+              <div class="rounded-sm border border-gray-300 bg-white shadow-sm">
+                <ul id="notices-page-list" class="divide-y divide-gray-200">
+                  <li class="px-5 py-8 text-center text-sm text-gray-500">공지사항을 불러오는 중...</li>
+                </ul>
+                <div id="notices-pagination" class="flex items-center justify-center gap-2 border-t border-gray-200 px-5 py-4"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/branding.js"></script>
+    <script src="/js/board-layout.js"></script>
+    <script src="/js/menus.js"></script>
+    <script src="/js/notices.js"></script>
+    <script src="/js/notice-admin.js"></script>
+    <script src="/js/notices-list.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", async () => {
+        if (!requireAuth()) return;
+        bindPortalHeader();
+        try {
+          await Promise.all([loadPortalBranding(), loadPortalMenus()]);
+          initNoticesListPage();
+        } catch (error) {
+          console.error("Notices page init failed:", error);
+        }
+      });
+    </script>
+  </body>
+</html>

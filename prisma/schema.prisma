@@ -1,0 +1,490 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id                   Int                   @id @default(autoincrement())
+  name                 String                @unique
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  users                User[]
+  registrationRequests RegistrationRequest[]
+  menuPermissions      RoleMenuPermission[]
+  menuActionPermissions RoleMenuActionPermission[]
+  queryPermission      RoleQueryPermission?
+  branding             RoleBranding?
+  accidentDetailPublication RoleAccidentDetailPublication?
+}
+
+/** 역할별 사고 상세(철도사고 DB) 공개 컬럼 */
+model RoleAccidentDetailPublication {
+  roleId            Int      @id
+  role              Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  visibleColumnKeys Json
+  updatedAt         DateTime @updatedAt
+}
+
+model RoleBranding {
+  id           Int      @id @default(autoincrement())
+  roleId       Int?     @unique
+  role         Role?    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  pageTitle    String   @default("철도안전정보종합관리시스템")
+  systemName   String   @default("철도안전정보종합관리시스템")
+  heroTitle    String?
+  heroSubtitle String?  @db.Text
+  showLogo     Boolean  @default(false)
+  logoUrl      String?
+  showCiMark   Boolean  @default(false)
+  ciMarkLabel  String?
+  showHero     Boolean  @default(true)
+  showFooter   Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model User {
+  id                   Int      @id @default(autoincrement())
+  email                String   @unique
+  password             String
+  name                 String
+  roleId               Int
+  role                 Role     @relation(fields: [roleId], references: [id])
+  ipRestrictionEnabled Boolean  @default(false)
+  allowedIp            String?
+  affiliation          String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  notices              Notice[]
+  loginLogs            UserLoginLog[]
+
+  @@index([roleId])
+}
+
+enum LoginLogStatus {
+  SUCCESS
+  FAILURE
+}
+
+model UserLoginLog {
+  id         Int            @id @default(autoincrement())
+  userId     Int?
+  user       User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email      String
+  name       String?
+  roleName   String?
+  status     LoginLogStatus
+  ipAddress  String?
+  userAgent  String?        @db.Text
+  failReason String?
+  createdAt  DateTime       @default(now())
+
+  @@index([userId])
+  @@index([email])
+  @@index([createdAt])
+  @@index([status])
+}
+
+enum RegistrationRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model RegistrationRequest {
+  id             Int                       @id @default(autoincrement())
+  email          String
+  password       String
+  name           String
+  affiliation    String
+  status         RegistrationRequestStatus @default(PENDING)
+  assignedRoleId Int?
+  assignedRole   Role?                     @relation(fields: [assignedRoleId], references: [id], onDelete: SetNull)
+  reviewedAt     DateTime?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  @@index([email])
+  @@index([status])
+}
+
+enum AccidentType {
+  COLLISION
+  DERAILMENT
+  FIRE
+  SIGNAL_FAILURE
+  HUMAN_ERROR
+  TRACK_DEFECT
+  OTHER
+}
+
+model RailwayAccident {
+  id             Int          @id @default(autoincrement())
+  accidentAt     DateTime
+  location       String
+  lineName       String
+  accidentType   AccidentType
+  cause          String
+  damageScale    String
+  deaths         Int          @default(0)
+  injuries       Int          @default(0)
+  trainCount     Int?
+  weather        String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  detail         AccidentDetail?
+
+  @@index([accidentAt])
+  @@index([lineName])
+  @@index([accidentType])
+}
+
+model AccidentDetail {
+  id         Int             @id @default(autoincrement())
+  accidentId Int             @unique
+  accident   RailwayAccident @relation(fields: [accidentId], references: [id], onDelete: Cascade)
+
+  accidentNumber String? @unique
+  year Int?
+  month Int?
+  day Int?
+  hour Int?
+  minute Int?
+  occurredAtText String?
+  weekday String?
+  registrationStatus String?
+  registrationAgency String?
+  railwayDivision String?
+  accidentKind String?
+  railwayAccidentKind String?
+  primaryCause String?
+  primaryCauseOther String? @db.Text
+  secondaryCause String?
+  secondaryCauseOther String? @db.Text
+  rootCauseGroup String?
+  rootCause String?
+  rootCauseDetail String? @db.Text
+  riskSource String?
+  operationDisruptionType String?
+  riskIncidentDisruptionStatus String? @db.Text
+  riskIncidentDisruptionCause String? @db.Text
+  riskIncidentCauseDetail String? @db.Text
+  nearMissStatus String? @db.Text
+  nearMissCause String? @db.Text
+  nearMissDetail String? @db.Text
+  delayOperationStatus String? @db.Text
+  delayOperationCause String? @db.Text
+  delayOperationCauseDetail String? @db.Text
+  administrativeDistrict String?
+  facilityDamage String? @db.Text
+  totalCasualtyLabel String?
+  deaths Int?
+  seriousInjuries Int?
+  minorInjuries Int?
+  totalDamageAmount Decimal? @db.Decimal(18, 3)
+  casualtyCompensationAmount Decimal? @db.Decimal(18, 3)
+  propertyDamageAmount Decimal? @db.Decimal(18, 3)
+  otherDamageAmount Decimal? @db.Decimal(18, 3)
+  humanLossCostTotal Decimal? @db.Decimal(18, 3)
+  deathProductionLossCost Decimal? @db.Decimal(18, 3)
+  deathMedicalCost Decimal? @db.Decimal(18, 3)
+  deathAdministrativeCost Decimal? @db.Decimal(18, 3)
+  deathPsychologicalCost Decimal? @db.Decimal(18, 3)
+  seriousProductionLossCost Decimal? @db.Decimal(18, 3)
+  seriousMedicalCost Decimal? @db.Decimal(18, 3)
+  seriousAdministrativeCost Decimal? @db.Decimal(18, 3)
+  seriousPsychologicalCost Decimal? @db.Decimal(18, 3)
+  minorProductionLossCost Decimal? @db.Decimal(18, 3)
+  minorMedicalCost Decimal? @db.Decimal(18, 3)
+  minorAdministrativeCost Decimal? @db.Decimal(18, 3)
+  minorPsychologicalCost Decimal? @db.Decimal(18, 3)
+  materialDamageCostTotal Decimal? @db.Decimal(18, 3)
+  vehicleRecoveryCost Decimal? @db.Decimal(18, 3)
+  trackRecoveryCost Decimal? @db.Decimal(18, 3)
+  signalRecoveryCost Decimal? @db.Decimal(18, 3)
+  electricalRecoveryCost Decimal? @db.Decimal(18, 3)
+  otherFacilityRecoveryCost Decimal? @db.Decimal(18, 3)
+  facilityDamageCostTotal Decimal? @db.Decimal(18, 3)
+  operationLossCostTotal Decimal? @db.Decimal(18, 3)
+  delayLossCost Decimal? @db.Decimal(18, 3)
+  substituteTransportCost Decimal? @db.Decimal(18, 3)
+  fareRefundCost Decimal? @db.Decimal(18, 3)
+  propertyEnvCompensationTotal String?
+  propertyPassengerCompensation String?
+  propertyStaffCompensation String?
+  propertyPublicCompensation String?
+  envPassengerCompensation String?
+  envStaffCompensation String?
+  envPublicCompensation String?
+  otherCostTotal Decimal? @db.Decimal(18, 3)
+  investigationCost Decimal? @db.Decimal(18, 3)
+  legalCost Decimal? @db.Decimal(18, 3)
+  reputationCost Decimal? @db.Decimal(18, 3)
+  otherMiscCost Decimal? @db.Decimal(18, 3)
+
+  lineName String?
+  lineDirection String?
+  stationA String?
+  stationB String?
+  occurrencePlace String?
+  baseStation String?
+  accidentPointKm Decimal? @db.Decimal(18, 3)
+  crossing String?
+  crossingType String?
+  guidePresent String?
+  trainType String?
+  trainNumber String?
+  consistNumber String?
+  vehicleNumber String?
+  vehicleAge String?
+  carCount Int?
+  unitCount Int?
+  operationFrom String?
+  operationTo String?
+  derailedCars Int?
+  damagedCars Int?
+  severeDamage Int?
+  moderateDamage Int?
+  minorDamage Int?
+  totalDelayedTrains Int?
+  highSpeedDelayedTrains Int?
+  regularDelayedTrains Int?
+  urbanDelayedTrains Int?
+  dedicatedDelayedTrains Int?
+  otherDelayedTrains Int?
+  totalDelayMin Decimal? @db.Decimal(18, 3)
+  totalDelayMax Decimal? @db.Decimal(18, 3)
+  highSpeedDelayMin Decimal? @db.Decimal(18, 3)
+  highSpeedDelayMax Decimal? @db.Decimal(18, 3)
+  regularDelayMin Decimal? @db.Decimal(18, 3)
+  regularDelayMax Decimal? @db.Decimal(18, 3)
+  urbanDelayMin Decimal? @db.Decimal(18, 3)
+  urbanDelayMax Decimal? @db.Decimal(18, 3)
+  dedicatedDelayMin Decimal? @db.Decimal(18, 3)
+  dedicatedDelayMax Decimal? @db.Decimal(18, 3)
+  otherDelayMin Decimal? @db.Decimal(18, 3)
+  otherDelayMax Decimal? @db.Decimal(18, 3)
+  mainLineBlockTime Decimal? @db.Decimal(18, 3)
+  mainLineRecoveryTime Decimal? @db.Decimal(18, 3)
+  siteSituation String?
+  closingSetting String?
+
+  weatherStatus String?
+  temperature Decimal? @db.Decimal(18, 3)
+  rainfall Decimal? @db.Decimal(18, 3)
+  snowfall Decimal? @db.Decimal(18, 3)
+  fogPresence String?
+  visibility Decimal? @db.Decimal(18, 3)
+  earthquake String?
+  wind Decimal? @db.Decimal(18, 3)
+  staffCategory String?
+  workCategory String?
+  relatedPersonCount Int?
+  relatedPersonOrg String?
+  relatedPersonJob String?
+  relatedPersonRank String?
+  relatedPersonName String?
+  relatedPersonAge Int?
+  placeTypeA String?
+  placeTypeB String?
+  operationLineCategory String?
+  trainVehicleCategory String?
+  speedLimit Decimal? @db.Decimal(18, 3)
+  accidentSpeedA Decimal? @db.Decimal(18, 3)
+  accidentSpeedB Decimal? @db.Decimal(18, 3)
+  trackType String?
+  signalSystemType String?
+  crossingAccidentPlace String?
+  crossingAccidentVehicle String?
+  hazmatCause String?
+  hazmatType String?
+  safetyFacilityTrack String?
+  safetyFacilityVehicle String?
+  safetyFacilityCrossing String?
+  riskIncidentClass String?
+  riskIncidentAttribute String?
+  riskIncident String?
+  riskIncidentDetail String?
+  subjectParty String?
+  objectParty String?
+  place String?
+  status1 String?
+  status2 String?
+  riskAreaClass String?
+  riskArea String?
+
+  accidentOverview String? @db.Text
+  actionContent String? @db.Text
+  accidentCause String?
+  preventionPlan String? @db.Text
+  accidentNumberBackup String?
+  investigationStatus String?
+  registeredBy String?
+  savedAtText String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([lineName])
+}
+
+model Notice {
+  id          Int      @id @default(autoincrement())
+  title       String
+  content     String   @db.Text
+  authorName  String
+  createdById Int?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
+model ExternalApiConfig {
+  id          Int      @id @default(autoincrement())
+  apiType     String   @unique
+  name        String
+  endpointUrl String?
+  apiKey      String?  @db.Text
+  enabled     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model InstitutionCode {
+  id        Int        @id @default(autoincrement())
+  code      String     @unique
+  name      String
+  lines     LineCode[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([name])
+}
+
+model LineCode {
+  id            Int             @id @default(autoincrement())
+  institutionId Int
+  code          String          @unique
+  name          String
+  institution   InstitutionCode @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  stations      StationCode[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([institutionId])
+  @@index([name])
+}
+
+model StationCode {
+  id        Int      @id @default(autoincrement())
+  lineId    Int
+  code      String   @unique
+  name      String
+  line      LineCode @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([lineId])
+  @@index([name])
+}
+
+model Menu {
+  id        Int      @id @default(autoincrement())
+  title     String
+  path      String?
+  sequence  Int      @default(0)
+  parentId  Int?
+  parent    Menu?    @relation("MenuTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Menu[]   @relation("MenuTree")
+  rolePermissions RoleMenuPermission[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId])
+  @@index([sequence])
+}
+
+enum QueryEnforcementMode {
+  OVERWRITE
+  BLOCK
+}
+
+model RoleMenuPermission {
+  id        Int      @id @default(autoincrement())
+  roleId    Int
+  menuId    Int
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  menu      Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([roleId, menuId])
+  @@index([roleId])
+  @@index([menuId])
+}
+
+model RoleMenuActionPermission {
+  id         Int      @id @default(autoincrement())
+  roleId     Int
+  menuPath   String
+  canRead    Boolean  @default(true)
+  canCreate  Boolean  @default(false)
+  canUpdate  Boolean  @default(false)
+  canDelete  Boolean  @default(false)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([roleId, menuPath])
+  @@index([roleId])
+  @@index([menuPath])
+}
+
+model RoleQueryPermission {
+  id                 Int                  @id @default(autoincrement())
+  roleId             Int                  @unique
+  enforcementMode    QueryEnforcementMode @default(OVERWRITE)
+  minAccidentAt      DateTime?
+  maxAccidentAt      DateTime?
+  allowedLineNames   Json?
+  allowedTypes       Json?
+  allowedLocationScope Json?
+  enforcedLineName   String?
+  role               Role                 @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@index([roleId])
+}
+
+/// 철도안전 투자공시 (연도구분·금액 세로형, 금액 단위: 백만원)
+model InvestmentDisclosureRecord {
+  id             Int      @id @default(autoincrement())
+  agencyName     String
+  disclosureYear Int
+  category1      String
+  category2      String
+  category3      String
+  yearLabel      Int
+  amountMillion  Float
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([agencyName])
+  @@index([disclosureYear])
+  @@index([category1])
+  @@index([yearLabel])
+}

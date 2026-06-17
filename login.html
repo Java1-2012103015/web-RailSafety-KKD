@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>로그인 | 철도안전정보종합관리시스템</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              navy: {
+                900: "#1f2747",
+                800: "#253056",
+                700: "#2e3a67",
+              },
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="/css/branding-logo.css" />
+  </head>
+  <body class="min-h-screen bg-gray-100 text-gray-800">
+    <div class="flex min-h-screen flex-col">
+      <header class="bg-navy-900 text-white">
+        <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <div class="flex items-center gap-2">
+            <span data-branding-wrap="logo" class="branding-logo-box hidden shrink-0">
+              <img id="branding-logo" alt="CI logo" />
+            </span>
+            <span
+              id="branding-ci-mark"
+              class="hidden shrink-0 rounded bg-white/15 px-2 py-0.5 text-[11px] font-semibold"
+            ></span>
+            <h1 data-branding="system-name" class="text-base font-bold sm:text-lg">철도안전정보종합관리시스템</h1>
+          </div>
+          <a href="/public/dashboard/accidents" class="text-sm text-gray-200 transition hover:text-white">공개 대시보드</a>
+        </div>
+      </header>
+
+      <main class="flex flex-1 items-center justify-center px-4 py-10">
+        <div class="w-full max-w-md rounded-sm border border-gray-300 bg-white p-6 shadow-sm sm:p-8">
+          <h2 class="text-xl font-bold text-gray-900">로그인</h2>
+          <p class="mt-2 text-sm text-gray-600">이메일(ID)과 비밀번호를 입력해 주세요.</p>
+
+          <form id="login-form" class="mt-6 space-y-4">
+            <div>
+              <label for="email" class="mb-1 block text-sm font-medium text-gray-700">이메일(ID)</label>
+              <input
+                id="email"
+                name="email"
+                type="text"
+                required
+                autocomplete="username"
+                class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none ring-navy-700 focus:ring-2"
+              />
+            </div>
+            <div>
+              <label for="password" class="mb-1 block text-sm font-medium text-gray-700">비밀번호</label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                autocomplete="current-password"
+                class="w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none ring-navy-700 focus:ring-2"
+              />
+            </div>
+            <p id="login-error" class="hidden text-sm text-red-600"></p>
+            <button
+              type="submit"
+              id="login-submit"
+              class="w-full rounded bg-navy-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-navy-800 disabled:opacity-60"
+            >
+              로그인
+            </button>
+            <a
+              href="/register"
+              class="block w-full rounded border border-gray-300 px-4 py-2.5 text-center text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            >
+              사용등록 신청
+            </a>
+          </form>
+        </div>
+      </main>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/branding.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        loadPublicBranding().catch((error) => console.error("Branding load failed:", error));
+
+        if (getToken()) {
+          window.location.href = "/portal";
+          return;
+        }
+
+        const form = document.getElementById("login-form");
+        const errorEl = document.getElementById("login-error");
+        const submitBtn = document.getElementById("login-submit");
+
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          errorEl.classList.add("hidden");
+          submitBtn.disabled = true;
+          submitBtn.textContent = "로그인 중...";
+
+          try {
+            const email = document.getElementById("email").value.trim();
+            const password = document.getElementById("password").value;
+            await login(email, password);
+            window.location.href = "/portal";
+          } catch (error) {
+            errorEl.textContent = error.message || "로그인에 실패했습니다.";
+            errorEl.classList.remove("hidden");
+          } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "로그인";
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
