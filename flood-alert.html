@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>철도시설침수경보 DB | 철도안전정보종합관리시스템</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              navy: { 900: "#1f2747", 800: "#253056", 700: "#2e3a67" },
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="/css/branding-logo.css" />
+  </head>
+  <body data-flood-page="db" class="min-h-screen overflow-x-hidden bg-gray-100 text-gray-800">
+    <div class="flex min-h-screen flex-col">
+      <header>
+        <div class="bg-navy-900 text-white">
+          <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+            <a href="/portal" class="flex min-w-0 items-center gap-2 sm:gap-3" aria-label="포털 메인으로 이동">
+              <span data-branding-wrap="logo" class="branding-logo-box hidden shrink-0">
+                <img id="branding-logo" alt="CI logo" />
+              </span>
+              <span id="branding-ci-mark" class="hidden shrink-0 rounded bg-white/15 px-2 py-0.5 text-[11px] font-semibold sm:text-xs"></span>
+              <h1 data-branding="system-name" class="truncate text-sm font-bold tracking-tight sm:text-base md:text-lg">
+                철도안전정보종합관리시스템
+              </h1>
+            </a>
+            <div class="flex flex-wrap items-center justify-end gap-2 text-xs sm:text-sm">
+              <a id="portal-admin-link" href="/admin" class="hidden rounded bg-amber-500 px-2 py-1 text-[11px] font-semibold text-navy-900 hover:bg-amber-400 sm:text-xs">관리자</a>
+              <span id="portal-user-name" class="text-gray-100">사용자님</span>
+              <button id="portal-logout-btn" type="button" class="rounded bg-white px-2 py-1 text-[11px] font-semibold text-navy-900 hover:bg-gray-100 sm:px-3 sm:text-xs">로그아웃</button>
+            </div>
+          </div>
+        </div>
+        <div class="bg-navy-800 text-white">
+          <nav class="mx-auto max-w-7xl overflow-visible px-4 sm:px-6 lg:px-8" aria-label="주 메뉴">
+            <ul id="portal-nav-list" class="flex items-center gap-6 overflow-visible py-3 text-sm font-medium whitespace-nowrap">
+              <li class="text-gray-300">메뉴 로딩 중...</li>
+            </ul>
+          </nav>
+        </div>
+      </header>
+
+      <main class="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-7xl">
+          <div class="flex flex-col gap-6 lg:flex-row lg:items-start">
+            <aside id="portal-section-sidebar" class="hidden w-full shrink-0 lg:w-56"></aside>
+            <div class="min-w-0 flex-1 space-y-6">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 class="text-xl font-bold text-gray-900">철도시설침수경보 DB</h2>
+                  <p class="mt-1 text-sm text-gray-600">강우 침수 사고사례, 사고위치, 사고당시 강우량 이력을 조회합니다. CSV 업로드 시 지점번호가 없으면 좌표·주소로 자동 매핑됩니다.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 shrink-0">
+                  <button id="flood-download-sample-btn" type="button" class="rounded border border-gray-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-gray-50">샘플 CSV</button>
+                  <button id="flood-download-current-btn" type="button" class="rounded border border-gray-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-gray-50">현재 데이터 CSV</button>
+                  <div id="flood-admin-upload-wrap" class="hidden flex flex-wrap items-center gap-2">
+                    <div class="flex rounded border border-gray-300 bg-white p-0.5 text-[10px] font-bold">
+                      <button type="button" data-flood-portal-encoding="EUC-KR" class="flood-portal-encoding-btn rounded px-2 py-1 bg-navy-900 text-white">EUC-KR</button>
+                      <button type="button" data-flood-portal-encoding="UTF-8" class="flood-portal-encoding-btn rounded px-2 py-1 text-gray-600">UTF-8</button>
+                    </div>
+                    <input id="flood-admin-csv-file" type="file" accept=".csv,text/csv" class="hidden" />
+                    <button id="flood-admin-upload-btn" type="button" class="rounded bg-navy-900 px-3 py-2 text-xs font-semibold text-white hover:bg-navy-800">CSV 업로드</button>
+                    <span id="flood-admin-upload-status" class="text-xs text-gray-500 max-w-[220px]"></span>
+                  </div>
+                  <a href="/dashboard/pre-flood-alert" class="text-sm text-navy-700 hover:underline whitespace-nowrap">사전침수경보 대시보드</a>
+                </div>
+              </div>
+
+              <section class="rounded border border-gray-300 bg-white px-5 py-4 shadow-sm">
+                <label class="block text-xs font-bold text-navy-700" for="flood-search">검색</label>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <input id="flood-search" type="search" placeholder="기관·노선·개소·위치" class="min-w-[220px] flex-1 rounded border border-gray-300 px-3 py-2 text-sm" />
+                  <button id="flood-search-btn" type="button" class="rounded bg-navy-900 px-4 py-2 text-xs font-semibold text-white hover:bg-navy-800">조회</button>
+                </div>
+              </section>
+
+              <div id="flood-loading" class="rounded border border-gray-300 bg-white px-6 py-10 text-center text-sm text-gray-500 shadow-sm">데이터를 불러오는 중...</div>
+
+              <div id="flood-content" class="hidden space-y-4">
+                <div class="overflow-x-auto rounded border border-gray-300 bg-white shadow-sm">
+                  <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50 text-left text-xs font-semibold text-gray-600">
+                      <tr>
+                        <th id="flood-check-col" class="hidden w-10 px-3 py-3">
+                          <input id="flood-check-all" type="checkbox" class="rounded border-gray-400" aria-label="전체 선택" />
+                        </th>
+                        <th class="px-4 py-3">사고번호</th>
+                        <th class="px-4 py-3">기관</th>
+                        <th class="px-4 py-3">노선</th>
+                        <th class="px-4 py-3">개소</th>
+                        <th class="px-4 py-3">사고위치</th>
+                        <th class="px-4 py-3">사고일시</th>
+                        <th class="px-4 py-3">15분(mm)</th>
+                        <th class="px-4 py-3">30분(mm)</th>
+                        <th class="px-4 py-3">60분(mm)</th>
+                        <th class="px-4 py-3">360분(mm)</th>
+                        <th class="px-4 py-3">관측소</th>
+                      </tr>
+                    </thead>
+                    <tbody id="flood-table-body" class="divide-y divide-gray-100 text-gray-800"></tbody>
+                  </table>
+                </div>
+                <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-600">
+                  <button
+                    id="flood-delete-selected-btn"
+                    type="button"
+                    class="hidden rounded border border-red-700 bg-red-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600 disabled:opacity-50"
+                  >
+                    체크된 데이터 삭제
+                  </button>
+                  <div class="flex flex-wrap items-center gap-2 sm:ml-auto">
+                    <span id="flood-pagination-info"></span>
+                    <div class="flex gap-2">
+                      <button id="flood-prev-page" type="button" class="rounded border border-gray-300 px-3 py-1.5 hover:bg-gray-50">이전</button>
+                      <button id="flood-next-page" type="button" class="rounded border border-gray-300 px-3 py-1.5 hover:bg-gray-50">다음</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/usage-tracker.js"></script>
+    <script src="/js/branding.js"></script>
+    <script src="/js/board-layout.js"></script>
+    <script src="/js/menus.js"></script>
+    <script src="/js/flood-alert.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", initFloodAlertPage);
+    </script>
+  </body>
+</html>

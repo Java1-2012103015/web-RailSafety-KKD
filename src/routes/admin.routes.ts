@@ -11,8 +11,10 @@ import adminNoticeRoutes from "./admin-notice.routes";
 import adminRegistrationRoutes from "./admin-registration.routes";
 import adminExternalApiRoutes from "./admin-external-api.routes";
 import adminInvestmentDisclosureRoutes from "./admin-investment-disclosure.routes";
+import adminFloodAlertRoutes from "./admin-flood-alert.routes";
 import adminAccidentDbPublicationRoutes from "./admin-accident-db-publication.routes";
 import adminLoginLogRoutes from "./admin-login-log.routes";
+import adminUsageLogRoutes from "./admin-usage-log.routes";
 
 const router = Router();
 
@@ -31,7 +33,9 @@ router.use("/", adminNoticeRoutes);
 router.use("/", adminRegistrationRoutes);
 router.use("/", adminExternalApiRoutes);
 router.use("/", adminInvestmentDisclosureRoutes);
+router.use("/", adminFloodAlertRoutes);
 router.use("/", adminAccidentDbPublicationRoutes);
 router.use("/", adminLoginLogRoutes);
+router.use("/", adminUsageLogRoutes);
 
 export default router;

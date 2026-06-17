@@ -1,6 +1,9 @@
 node_modules
 dist
 
+# Cursor rule with server credentials (do not commit)
+.cursor/rules/server-deploy.mdc
+
 # Keep environment variables out of version control
 .env
 .env.*

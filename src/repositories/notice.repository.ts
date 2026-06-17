@@ -1,15 +1,31 @@
-import type { Notice, Prisma } from "@prisma/client";
+import type { Notice, NoticeBoardType, Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
 
+export type NoticeListFilter = {
+  skip: number;
+  take: number;
+  boardType?: NoticeBoardType;
+  visibleOnly?: boolean;
+};
+
 export class NoticeRepository {
-  async findMany(options: { skip: number; take: number }): Promise<{ items: Notice[]; total: number }> {
+  async findMany(options: NoticeListFilter): Promise<{ items: Notice[]; total: number }> {
+    const where: Prisma.NoticeWhereInput = {};
+    if (options.boardType) {
+      where.boardType = options.boardType;
+    }
+    if (options.visibleOnly) {
+      where.visible = true;
+    }
+
     const [items, total] = await Promise.all([
       prisma.notice.findMany({
-        orderBy: { createdAt: "desc" },
+        where,
+        orderBy: { postedAt: "desc" },
         skip: options.skip,
         take: options.take,
       }),
-      prisma.notice.count(),
+      prisma.notice.count({ where }),
     ]);
 
     return { items, total };

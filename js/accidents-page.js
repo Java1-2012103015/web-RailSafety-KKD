@@ -40,6 +40,8 @@ const LINE_OPTIONS = [
 ];
 
 const BULK_MAX_RECORDS = 20000;
+/** nginx 기본 1MB 제한 등 프록시 환경에서 413 방지 — 건당 요청 크기 상한 */
+const BULK_CHUNK_SIZE = 100;
 
 const listState = {
   page: 1,
@@ -554,14 +556,24 @@ async function handleBulkUploadFile(file) {
         stationB: readCell(index + 1, colStationB >= 0 ? colStationB : EXCEL_STATION_B_COL),
       }),
     );
-    const result = await apiFetch("/api/accidents/bulk", {
-      auth: true,
-      method: "POST",
-      body: { records },
-    });
 
-    const created = result.data?.created ?? 0;
-    const updated = result.data?.updated ?? 0;
+    let created = 0;
+    let updated = 0;
+    for (let offset = 0; offset < records.length; offset += BULK_CHUNK_SIZE) {
+      const chunk = records.slice(offset, offset + BULK_CHUNK_SIZE);
+      if (btn) {
+        const done = Math.min(offset + chunk.length, records.length);
+        btn.textContent = `업로드 중... ${done.toLocaleString("ko-KR")}/${records.length.toLocaleString("ko-KR")}`;
+      }
+      const result = await apiFetch("/api/accidents/bulk", {
+        auth: true,
+        method: "POST",
+        body: { records: chunk },
+      });
+      created += result.data?.created ?? 0;
+      updated += result.data?.updated ?? 0;
+    }
+
     alert(`일괄등록 완료: 생성 ${created}건, 업데이트 ${updated}건`);
     listState.page = 1;
     await loadAccidentsList();

@@ -239,7 +239,7 @@ function renderStats(analytics) {
   }
 }
 
-const PIE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#6366f1"];
+const PIE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#6366f1", "#14b8a6"];
 
 function renderTrendChart(data) {
   destroyInvChart("trend");
@@ -366,39 +366,64 @@ function renderCategoryYearChart(selectedKey) {
   const canvas = document.getElementById("inv-chart-category");
   if (!canvas || !window.Chart || !invState.categoryYearTrend) return;
 
-  const series = invState.categoryYearTrend.seriesByCategory[selectedKey] ?? [];
-  const categoryLabel =
-    invState.categoryYearTrend.categories.find((c) => c.value === selectedKey)?.label ?? "전체";
+  const trend = invState.categoryYearTrend;
+  const isAll = selectedKey === "ALL";
+  const categoryItems = trend.categories.filter((c) => c.value !== "ALL");
+
+  let labels;
+  let datasets;
+
+  if (isAll) {
+    labels = (trend.seriesByCategory.ALL ?? []).map((d) => d.label);
+    datasets = categoryItems.map((cat, idx) => {
+      const series = trend.seriesByCategory[cat.value] ?? [];
+      return {
+        label: cat.label,
+        data: series.map((d) => d.amount),
+        backgroundColor: PIE_COLORS[idx % PIE_COLORS.length],
+        borderRadius: 4,
+        stack: "category",
+      };
+    });
+  } else {
+    const series = trend.seriesByCategory[selectedKey] ?? [];
+    const categoryLabel =
+      trend.categories.find((c) => c.value === selectedKey)?.label ?? "전체";
+    labels = series.map((d) => d.label);
+    datasets = [
+      {
+        label: categoryLabel,
+        data: series.map((d) => d.amount),
+        backgroundColor: "#6366f1",
+        borderRadius: 4,
+      },
+    ];
+  }
 
   invCharts.category = new Chart(canvas, {
     type: "bar",
-    data: {
-      labels: series.map((d) => d.label),
-      datasets: [
-        {
-          label: categoryLabel,
-          data: series.map((d) => d.amount),
-          backgroundColor: "#6366f1",
-          borderRadius: 4,
-        },
-      ],
-    },
+    data: { labels, datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false },
+        legend: { display: isAll, position: "bottom" },
         tooltip: {
           callbacks: {
-            label: (ctx) => `${formatToKoreanWon(ctx.raw)} (${Number(ctx.raw).toLocaleString()}백만)`,
+            label: (ctx) =>
+              isAll
+                ? `${ctx.dataset.label}: ${formatToKoreanWon(ctx.raw)} (${Number(ctx.raw).toLocaleString()}백만)`
+                : `${formatToKoreanWon(ctx.raw)} (${Number(ctx.raw).toLocaleString()}백만)`,
           },
         },
       },
       scales: {
         x: {
+          stacked: isAll,
           title: { display: true, text: "연도", font: { size: 11 } },
         },
         y: {
+          stacked: isAll,
           beginAtZero: true,
           title: { display: true, text: "금액 (백만원)", font: { size: 11 } },
         },

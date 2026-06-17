@@ -96,10 +96,14 @@ function routeToPanel() {
   document.getElementById("panel-codes").classList.add("hidden");
   document.getElementById("panel-code-relations").classList.add("hidden");
   document.getElementById("panel-external-apis").classList.add("hidden");
+  document.getElementById("panel-external-apis-weather").classList.add("hidden");
+  document.getElementById("panel-external-apis-news").classList.add("hidden");
   document.getElementById("panel-investment-disclosure").classList.add("hidden");
+  document.getElementById("panel-flood-alert").classList.add("hidden");
   document.getElementById("panel-accident-db-publication").classList.add("hidden");
   document.getElementById("panel-registrations").classList.add("hidden");
   document.getElementById("panel-login-logs").classList.add("hidden");
+  document.getElementById("panel-usage-stats").classList.add("hidden");
 
   // Remove active styling from all links
   document.getElementById("tab-link-branding").classList.remove("active-tab");
@@ -110,9 +114,13 @@ function routeToPanel() {
   document.getElementById("tab-link-codes").classList.remove("active-tab");
   document.getElementById("tab-link-code-relations").classList.remove("active-tab");
   document.getElementById("tab-link-external-apis").classList.remove("active-tab");
+  document.getElementById("tab-link-external-apis-weather").classList.remove("active-tab");
+  document.getElementById("tab-link-external-apis-news").classList.remove("active-tab");
   document.getElementById("tab-link-investment-disclosure").classList.remove("active-tab");
+  document.getElementById("tab-link-flood-alert").classList.remove("active-tab");
   document.getElementById("tab-link-accident-db-publication").classList.remove("active-tab");
   document.getElementById("tab-link-login-logs").classList.remove("active-tab");
+  document.getElementById("tab-link-usage-stats").classList.remove("active-tab");
 
   // Switch panel
   if (path === "/admin/users") {
@@ -125,6 +133,11 @@ function routeToPanel() {
     document.getElementById("tab-link-login-logs").classList.add("active-tab");
     document.getElementById("admin-header-title").textContent = "관리자 포털 · 로그인 기록";
     loadLoginLogsTab();
+  } else if (path === "/admin/usage-stats") {
+    document.getElementById("panel-usage-stats").classList.remove("hidden");
+    document.getElementById("tab-link-usage-stats").classList.add("active-tab");
+    document.getElementById("admin-header-title").textContent = "관리자 포털 · 활용도 통계";
+    loadUsageStatsTab();
   } else if (path === "/admin/registrations") {
     document.getElementById("panel-registrations").classList.remove("hidden");
     document.getElementById("tab-link-registrations").classList.add("active-tab");
@@ -165,11 +178,27 @@ function routeToPanel() {
     document.getElementById("tab-link-investment-disclosure").classList.add("active-tab");
     document.getElementById("admin-header-title").textContent = "관리자 포털 · 철도안전 투자공시";
     loadInvestmentDisclosureTab();
+  } else if (path === "/admin/flood-alert") {
+    document.getElementById("panel-flood-alert").classList.remove("hidden");
+    document.getElementById("tab-link-flood-alert").classList.add("active-tab");
+    document.getElementById("admin-header-title").textContent = "관리자 포털 · 철도시설침수경보 DB";
+    loadFloodAlertTab();
+  } else if (path === "/admin/external-apis/weather") {
+    document.getElementById("panel-external-apis-weather").classList.remove("hidden");
+    document.getElementById("tab-link-external-apis-weather").classList.add("active-tab");
+    document.getElementById("admin-header-title").textContent = "관리자 포털 · 외부 API · 기상";
+    loadExternalApisTab(["WEATHER"]);
+  } else if (path === "/admin/external-apis/news") {
+    document.getElementById("panel-external-apis-news").classList.remove("hidden");
+    document.getElementById("tab-link-external-apis-news").classList.add("active-tab");
+    document.getElementById("admin-header-title").textContent = "관리자 포털 · 외부 API · 뉴스";
+    loadExternalApisTab(["NEWS"]);
+    loadFloodNewsKeywords();
   } else if (path === "/admin/external-apis") {
     document.getElementById("panel-external-apis").classList.remove("hidden");
     document.getElementById("tab-link-external-apis").classList.add("active-tab");
-    document.getElementById("admin-header-title").textContent = "관리자 포털 · 외부 API 관리";
-    loadExternalApisTab();
+    document.getElementById("admin-header-title").textContent = "관리자 포털 · 외부 API · 주소/지도";
+    loadExternalApisTab(["ROAD_ADDRESS", "MAP_ADDRESS"]);
   } else {
     // default/branding settings
     document.getElementById("panel-branding").classList.remove("hidden");
@@ -181,7 +210,7 @@ function routeToPanel() {
 
 // Bind navigation click intercepts
 function initRouter() {
-  const links = ["tab-link-branding", "tab-link-users", "tab-link-login-logs", "tab-link-registrations", "tab-link-menus", "tab-link-roles", "tab-link-codes", "tab-link-code-relations", "tab-link-accident-db-publication", "tab-link-investment-disclosure", "tab-link-external-apis"];
+  const links = ["tab-link-branding", "tab-link-users", "tab-link-login-logs", "tab-link-usage-stats", "tab-link-registrations", "tab-link-menus", "tab-link-roles", "tab-link-codes", "tab-link-code-relations", "tab-link-accident-db-publication", "tab-link-investment-disclosure", "tab-link-flood-alert", "tab-link-external-apis", "tab-link-external-apis-weather", "tab-link-external-apis-news"];
   links.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
@@ -1258,6 +1287,11 @@ function renderRolesOverview() {
     })
     .join("");
 
+  if (selectedManageRoleId) {
+    select.value = String(selectedManageRoleId);
+    showRoleMembers(selectedManageRoleId);
+  }
+
   select.onchange = () => {
     const roleId = Number(select.value);
     if (!roleId) {
@@ -1595,6 +1629,7 @@ async function onPermissionRoleChange() {
   if (overviewSelect) {
     overviewSelect.value = String(selectedRoleId);
   }
+  showRoleMembers(selectedRoleId);
   syncManageRoleForm();
   status.textContent = "조회 중...";
   status.className = "text-xs text-gray-500";
@@ -1785,7 +1820,8 @@ async function saveQueryPermissions() {
 // TAB 5: CODE MANAGEMENT
 // ==========================================
 function downloadCsv(filename, content) {
-  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+  // Excel(Windows)이 UTF-8로 인식하도록 BOM 추가 — 없으면 CP949로 열려 한글이 깨짐
+  const blob = new Blob(["\uFEFF" + (content || "")], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -3081,6 +3117,125 @@ function bindInvestmentDisclosureAdminEvents() {
 }
 
 // ==========================================
+// TAB: FLOOD ALERT DB
+// ==========================================
+let floodAdminEncoding = "EUC-KR";
+
+async function loadFloodAlertTab() {
+  const info = document.getElementById("flood-admin-info");
+  if (!info) return;
+  try {
+    const res = await apiFetch("/api/admin/flood-alert/info", { auth: true });
+    const { recordCount } = res.data ?? {};
+    info.textContent = `저장 레코드 ${recordCount ?? 0}건`;
+  } catch (error) {
+    info.textContent = `현황 조회 실패: ${error.message}`;
+  }
+}
+
+function readFloodCsvFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (evt) => resolve(evt.target?.result ?? "");
+    reader.onerror = () => reject(new Error("파일을 읽을 수 없습니다."));
+    reader.readAsText(file, floodAdminEncoding);
+  });
+}
+
+async function downloadFloodSampleCsv() {
+  const res = await apiFetch("/api/admin/flood-alert/sample-csv", { auth: true });
+  downloadCsv("flood-alert-sample.csv", res.data);
+}
+
+async function downloadFloodCurrentCsv() {
+  const res = await apiFetch("/api/admin/flood-alert/export-csv", { auth: true });
+  downloadCsv("flood-alert-current.csv", res.data);
+}
+
+async function uploadFloodAlertCsv() {
+  const fileInput = document.getElementById("flood-csv-file");
+  const status = document.getElementById("flood-upload-status");
+  const file = fileInput?.files?.[0];
+  if (!file) {
+    status.textContent = "CSV 파일을 선택하세요.";
+    status.className = "ml-3 text-xs text-red-600";
+    return;
+  }
+  status.textContent = "업로드 중...";
+  status.className = "ml-3 text-xs text-gray-500";
+  try {
+    const csv = await readFloodCsvFile(file);
+    const res = await apiFetch("/api/admin/flood-alert/upload-csv", {
+      auth: true,
+      method: "POST",
+      body: { csv },
+    });
+    status.textContent = `업로드 완료 (처리 ${res.data?.processedCount ?? 0}건 · 신규 ${res.data?.createdCount ?? 0} · 갱신 ${res.data?.updatedCount ?? 0} · 지점매핑 ${res.data?.stationMappedCount ?? 0})`;
+    status.className = "ml-3 text-xs text-green-600";
+    fileInput.value = "";
+    await loadFloodAlertTab();
+  } catch (error) {
+    status.textContent = `업로드 실패: ${error.message}`;
+    status.className = "ml-3 text-xs text-red-600";
+  }
+}
+
+async function loadFloodNewsKeywords() {
+  const textarea = document.getElementById("flood-news-keywords");
+  if (!textarea) return;
+  try {
+    const res = await apiFetch("/api/admin/flood-alert/settings", { auth: true });
+    const keywords = res.data?.newsKeywords ?? [];
+    textarea.value = keywords.join(", ");
+  } catch (error) {
+    textarea.value = "";
+    console.error(error);
+  }
+}
+
+async function saveFloodNewsKeywords() {
+  const textarea = document.getElementById("flood-news-keywords");
+  const status = document.getElementById("flood-keywords-status");
+  if (!textarea || !status) return;
+  const newsKeywords = textarea.value
+    .split(/[,，\n]/)
+    .map((keyword) => keyword.trim())
+    .filter(Boolean);
+  status.textContent = "저장 중...";
+  status.className = "text-xs text-gray-500";
+  try {
+    await apiFetch("/api/admin/flood-alert/settings", {
+      auth: true,
+      method: "PUT",
+      body: { newsKeywords },
+    });
+    status.textContent = "저장되었습니다.";
+    status.className = "text-xs text-green-600";
+  } catch (error) {
+    status.textContent = `저장 실패: ${error.message}`;
+    status.className = "text-xs text-red-600";
+  }
+}
+
+function bindFloodAlertAdminEvents() {
+  document.getElementById("btn-flood-download-sample")?.addEventListener("click", downloadFloodSampleCsv);
+  document.getElementById("btn-flood-download-current")?.addEventListener("click", downloadFloodCurrentCsv);
+  document.getElementById("btn-flood-upload")?.addEventListener("click", uploadFloodAlertCsv);
+  document.getElementById("btn-flood-save-keywords")?.addEventListener("click", saveFloodNewsKeywords);
+  document.querySelectorAll(".flood-encoding-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      floodAdminEncoding = btn.getAttribute("data-flood-encoding") || "UTF-8";
+      document.querySelectorAll(".flood-encoding-btn").forEach((b) => {
+        const active = b.getAttribute("data-flood-encoding") === floodAdminEncoding;
+        b.className = active
+          ? "flood-encoding-btn rounded px-3 py-1.5 text-xs font-bold bg-navy-900 text-white"
+          : "flood-encoding-btn rounded px-3 py-1.5 text-xs font-bold border border-gray-300";
+      });
+    });
+  });
+}
+
+// ==========================================
 // TAB: LOGIN LOGS
 // ==========================================
 let loginLogsState = { page: 1, pageSize: 30, email: "", status: "" };
@@ -3205,6 +3360,195 @@ function bindLoginLogsTabEvents() {
     nextBtn.addEventListener("click", () => {
       loginLogsState.page += 1;
       loadLoginLogsTab();
+    });
+  }
+}
+
+// ==========================================
+// TAB: USAGE STATS
+// ==========================================
+let usageStatsState = { page: 1, pageSize: 30, email: "", path: "", fromDate: "", toDate: "" };
+
+function formatDwellTime(seconds) {
+  const value = Number(seconds) || 0;
+  if (value < 60) return `${value}초`;
+  const minutes = Math.floor(value / 60);
+  const remain = value % 60;
+  if (minutes < 60) return remain ? `${minutes}분 ${remain}초` : `${minutes}분`;
+  const hours = Math.floor(minutes / 60);
+  const remainMin = minutes % 60;
+  return remainMin ? `${hours}시간 ${remainMin}분` : `${hours}시간`;
+}
+
+async function loadUsageStatsSummary() {
+  const params = new URLSearchParams();
+  if (usageStatsState.fromDate) params.set("fromDate", usageStatsState.fromDate);
+  if (usageStatsState.toDate) params.set("toDate", usageStatsState.toDate);
+
+  try {
+    const res = await apiFetch(`/api/admin/usage-stats/summary?${params.toString()}`, { auth: true });
+    const data = res.data ?? {};
+
+    const setText = (id, text) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    };
+
+    setText("usage-stats-total-visits", Number(data.totalVisits ?? 0).toLocaleString("ko-KR"));
+    setText("usage-stats-today-visits", Number(data.todayVisits ?? 0).toLocaleString("ko-KR"));
+    setText("usage-stats-unique-users", Number(data.uniqueUsers ?? 0).toLocaleString("ko-KR"));
+    setText("usage-stats-avg-dwell", formatDwellTime(data.avgDwellSeconds ?? 0));
+
+    const topBody = document.getElementById("usage-stats-top-paths-body");
+    const topPaths = data.topPaths ?? [];
+    if (topBody) {
+      if (!topPaths.length) {
+        topBody.innerHTML = `<tr><td colspan="3" class="px-3 py-6 text-center text-gray-500">데이터 없음</td></tr>`;
+      } else {
+        topBody.innerHTML = topPaths
+          .map(
+            (row) => `
+          <tr class="hover:bg-gray-50">
+            <td class="px-3 py-2 font-mono text-xs text-gray-800">${escapeAdminHtml(row.path)}</td>
+            <td class="px-3 py-2 text-right text-gray-700">${Number(row.visits).toLocaleString("ko-KR")}</td>
+            <td class="px-3 py-2 text-right text-gray-600">${formatDwellTime(row.avgDwellSeconds)}</td>
+          </tr>
+        `,
+          )
+          .join("");
+      }
+    }
+
+    const dailyBody = document.getElementById("usage-stats-daily-body");
+    const dailyVisits = data.dailyVisits ?? [];
+    if (dailyBody) {
+      if (!dailyVisits.length) {
+        dailyBody.innerHTML = `<tr><td colspan="3" class="px-3 py-6 text-center text-gray-500">데이터 없음</td></tr>`;
+      } else {
+        dailyBody.innerHTML = dailyVisits
+          .map(
+            (row) => `
+          <tr class="hover:bg-gray-50">
+            <td class="px-3 py-2 text-gray-800">${escapeAdminHtml(row.date)}</td>
+            <td class="px-3 py-2 text-right text-gray-700">${Number(row.visits).toLocaleString("ko-KR")}</td>
+            <td class="px-3 py-2 text-right text-gray-600">${Number(row.uniqueUsers).toLocaleString("ko-KR")}</td>
+          </tr>
+        `,
+          )
+          .join("");
+      }
+    }
+  } catch (error) {
+    console.error("Usage summary load failed:", error);
+  }
+}
+
+async function loadUsageStatsTab() {
+  const tbody = document.getElementById("usage-stats-table-body");
+  const summary = document.getElementById("usage-stats-summary");
+  const pageInfo = document.getElementById("usage-stats-page-info");
+  const prevBtn = document.getElementById("usage-stats-prev");
+  const nextBtn = document.getElementById("usage-stats-next");
+  if (!tbody) return;
+
+  tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-8 text-center text-gray-500">기록을 불러오는 중...</td></tr>`;
+  loadUsageStatsSummary();
+
+  try {
+    const params = new URLSearchParams();
+    params.set("page", String(usageStatsState.page));
+    params.set("pageSize", String(usageStatsState.pageSize));
+    if (usageStatsState.email) params.set("email", usageStatsState.email);
+    if (usageStatsState.path) params.set("path", usageStatsState.path);
+    if (usageStatsState.fromDate) params.set("fromDate", usageStatsState.fromDate);
+    if (usageStatsState.toDate) params.set("toDate", usageStatsState.toDate);
+
+    const res = await apiFetch(`/api/admin/usage-stats?${params.toString()}`, { auth: true });
+    const { items = [], total = 0, page = 1, pageSize = 30 } = res.data ?? {};
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+    if (summary) {
+      summary.textContent = `총 ${total.toLocaleString("ko-KR")}건 · ${page} / ${totalPages} 페이지`;
+    }
+    if (pageInfo) {
+      pageInfo.textContent = `${page} / ${totalPages}`;
+    }
+    if (prevBtn) prevBtn.disabled = page <= 1;
+    if (nextBtn) nextBtn.disabled = page >= totalPages;
+
+    if (!items.length) {
+      tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-8 text-center text-gray-500">조회된 접속 기록이 없습니다.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = items
+      .map(
+        (row) => `
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3 whitespace-nowrap text-xs text-gray-600">${formatLoginLogDateTime(row.createdAt)}</td>
+          <td class="px-4 py-3 text-gray-800">${escapeAdminHtml(row.email ?? "-")}</td>
+          <td class="px-4 py-3">${escapeAdminHtml(row.name ?? "-")}</td>
+          <td class="px-4 py-3 text-gray-600">${escapeAdminHtml(row.roleName ?? "-")}</td>
+          <td class="px-4 py-3 font-mono text-xs text-gray-700">${escapeAdminHtml(row.path)}</td>
+          <td class="px-4 py-3 text-xs text-gray-500">${escapeAdminHtml(row.pageTitle ?? "-")}</td>
+          <td class="px-4 py-3 text-right text-xs text-gray-700">${formatDwellTime(row.dwellSeconds)}</td>
+          <td class="px-4 py-3 font-mono text-xs text-gray-600">${escapeAdminHtml(row.ipAddress ?? "-")}</td>
+        </tr>
+      `,
+      )
+      .join("");
+  } catch (error) {
+    tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-8 text-center font-semibold text-red-500">로드 실패: ${escapeAdminHtml(error.message)}</td></tr>`;
+    if (summary) summary.textContent = "-";
+  }
+}
+
+function bindUsageStatsTabEvents() {
+  const form = document.getElementById("usage-stats-filter-form");
+  const resetBtn = document.getElementById("usage-stats-filter-reset");
+  const prevBtn = document.getElementById("usage-stats-prev");
+  const nextBtn = document.getElementById("usage-stats-next");
+
+  if (form && !form.dataset.bound) {
+    form.dataset.bound = "1";
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      usageStatsState.page = 1;
+      usageStatsState.fromDate = document.getElementById("usage-stats-filter-from")?.value ?? "";
+      usageStatsState.toDate = document.getElementById("usage-stats-filter-to")?.value ?? "";
+      usageStatsState.email = document.getElementById("usage-stats-filter-email")?.value?.trim() ?? "";
+      usageStatsState.path = document.getElementById("usage-stats-filter-path")?.value?.trim() ?? "";
+      loadUsageStatsTab();
+    });
+  }
+
+  if (resetBtn && !resetBtn.dataset.bound) {
+    resetBtn.dataset.bound = "1";
+    resetBtn.addEventListener("click", () => {
+      usageStatsState = { page: 1, pageSize: 30, email: "", path: "", fromDate: "", toDate: "" };
+      ["usage-stats-filter-from", "usage-stats-filter-to", "usage-stats-filter-email", "usage-stats-filter-path"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+      });
+      loadUsageStatsTab();
+    });
+  }
+
+  if (prevBtn && !prevBtn.dataset.bound) {
+    prevBtn.dataset.bound = "1";
+    prevBtn.addEventListener("click", () => {
+      if (usageStatsState.page > 1) {
+        usageStatsState.page -= 1;
+        loadUsageStatsTab();
+      }
+    });
+  }
+
+  if (nextBtn && !nextBtn.dataset.bound) {
+    nextBtn.dataset.bound = "1";
+    nextBtn.addEventListener("click", () => {
+      usageStatsState.page += 1;
+      loadUsageStatsTab();
     });
   }
 }
@@ -3352,10 +3696,13 @@ function fillExternalApiForm(config) {
   updateExternalApiStatusBadge(apiType, config);
 }
 
-async function loadExternalApisTab() {
+async function loadExternalApisTab(apiTypes = null) {
   try {
     const result = await apiFetch("/api/admin/external-apis", { auth: true });
-    (result.data ?? []).forEach((config) => fillExternalApiForm(config));
+    (result.data ?? []).forEach((config) => {
+      if (apiTypes && !apiTypes.includes(config.apiType)) return;
+      fillExternalApiForm(config);
+    });
   } catch (error) {
     console.error(error);
     alert(error.message || "외부 API 설정을 불러오지 못했습니다.");
@@ -3416,6 +3763,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Bind Router
   initRouter();
   bindLoginLogsTabEvents();
+  bindUsageStatsTabEvents();
   routeToPanel();
 
   // Bind Tab 1: Branding settings input previews and save button
@@ -3477,6 +3825,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-code-relations-download-xlsx").addEventListener("click", downloadCodeRelationsXlsx);
 
   bindInvestmentDisclosureAdminEvents();
+  bindFloodAlertAdminEvents();
 
   document.querySelectorAll(".external-api-form").forEach((form) => {
     form.addEventListener("submit", (event) => {

@@ -23,7 +23,7 @@ function renderChildMenus(children) {
   if (!children.length) return "";
 
   return `
-    <ul class="absolute right-0 top-full z-30 hidden min-w-[11rem] rounded-sm bg-navy-700 py-1 shadow-lg group-hover:block group-focus-within:block">
+    <ul class="absolute right-0 top-full z-[1100] hidden min-w-[11rem] rounded-sm bg-navy-700 py-1 shadow-lg group-hover:block group-focus-within:block">
       ${children
         .map((child) => {
           const href = child.path || "#";
@@ -77,7 +77,11 @@ async function loadPortalMenus() {
 
   try {
     const result = await apiFetch("/api/menus", { auth: true });
-    const menus = result.data ?? [];
+    const rawMenus = result.data ?? [];
+    const menus =
+      typeof enrichMenusWithSectionDefaults === "function"
+        ? enrichMenusWithSectionDefaults(rawMenus)
+        : rawMenus;
 
     if (!menus.length) {
       navList.innerHTML = `<li class="text-sm text-gray-300">표시할 메뉴가 없습니다.</li>`;

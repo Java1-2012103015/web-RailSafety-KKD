@@ -9,6 +9,8 @@ import brandingRoutes from "./routes/branding.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
 import noticeRoutes from "./routes/notice.routes";
 import investmentDisclosureRoutes from "./routes/investment-disclosure.routes";
+import floodAlertRoutes from "./routes/flood-alert.routes";
+import usageLogRoutes from "./routes/usage-log.routes";
 import { errorHandler } from "./middlewares/error.middleware";
 
 const app = express();
@@ -30,6 +32,10 @@ app.get("/public/dashboard/investment-disclosure", (_req, res) => {
   res.sendFile(path.join(projectRoot, "public-dashboard-investment-disclosure.html"));
 });
 
+app.get("/public/dashboard/pre-flood-alert", (_req, res) => {
+  res.sendFile(path.join(projectRoot, "public-dashboard-pre-flood-alert.html"));
+});
+
 app.get("/login", (_req, res) => {
   res.sendFile(path.join(projectRoot, "login.html"));
 });
@@ -47,6 +53,10 @@ for (const route of portalMainPages) {
 
 app.get("/dashboard/investment-disclosure", (_req, res) => {
   res.sendFile(path.join(projectRoot, "investment-disclosure-dashboard.html"));
+});
+
+app.get("/dashboard/pre-flood-alert", (_req, res) => {
+  res.sendFile(path.join(projectRoot, "pre-flood-alert-dashboard.html"));
 });
 
 app.get("/notices", (_req, res) => {
@@ -76,18 +86,26 @@ app.get("/investment-disclosure", (_req, res) => {
   res.sendFile(path.join(projectRoot, "investment-disclosure.html"));
 });
 
+app.get("/flood-alert", (_req, res) => {
+  res.sendFile(path.join(projectRoot, "flood-alert.html"));
+});
+
 const adminPages = [
   "/admin",
   "/admin/users",
   "/admin/login-logs",
+  "/admin/usage-stats",
   "/admin/menus",
   "/admin/roles",
   "/admin/codes",
   "/admin/code-relations",
   "/admin/external-apis",
+  "/admin/external-apis/weather",
+  "/admin/external-apis/news",
   "/admin/registrations",
   "/admin/accident-db-publication",
   "/admin/investment-disclosure",
+  "/admin/flood-alert",
 ];
 for (const route of adminPages) {
   app.get(route, (_req, res) => {
@@ -108,6 +126,8 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/notices", noticeRoutes);
 app.use("/api/branding", brandingRoutes);
 app.use("/api/investment-disclosure", investmentDisclosureRoutes);
+app.use("/api/flood-alert", floodAlertRoutes);
+app.use("/api/usage", usageLogRoutes);
 
 app.use(express.static(projectRoot, { index: false }));
 

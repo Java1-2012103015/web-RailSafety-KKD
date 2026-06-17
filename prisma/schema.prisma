@@ -67,6 +67,7 @@ model User {
 
   notices              Notice[]
   loginLogs            UserLoginLog[]
+  pageUsageLogs        UserPageUsageLog[]
 
   @@index([roleId])
 }
@@ -93,6 +94,29 @@ model UserLoginLog {
   @@index([email])
   @@index([createdAt])
   @@index([status])
+}
+
+/// 포털·관리자 페이지 접속 및 체류시간 기록
+model UserPageUsageLog {
+  id           Int       @id @default(autoincrement())
+  userId       Int?
+  user         User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email        String?
+  name         String?
+  roleName     String?
+  path         String
+  pageTitle    String?
+  sessionKey   String    @unique
+  dwellSeconds Int       @default(0)
+  ipAddress    String?
+  userAgent    String?   @db.Text
+  createdAt    DateTime  @default(now())
+  leftAt       DateTime?
+
+  @@index([userId])
+  @@index([email])
+  @@index([path])
+  @@index([createdAt])
 }
 
 enum RegistrationRequestStatus {
@@ -339,16 +363,26 @@ model AccidentDetail {
   @@index([lineName])
 }
 
-model Notice {
-  id          Int      @id @default(autoincrement())
-  title       String
-  content     String   @db.Text
-  authorName  String
-  createdById Int?
-  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+enum NoticeBoardType {
+  NOTICE
+  ARCHIVE
+}
 
+model Notice {
+  id          Int             @id @default(autoincrement())
+  boardType   NoticeBoardType @default(NOTICE)
+  title       String
+  content     String          @db.Text
+  authorName  String
+  postedAt    DateTime        @default(now())
+  visible     Boolean         @default(true)
+  createdById Int?
+  createdBy   User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([boardType, postedAt])
+  @@index([visible])
   @@index([createdAt])
 }
 
@@ -468,6 +502,40 @@ model RoleQueryPermission {
   updatedAt          DateTime             @updatedAt
 
   @@index([roleId])
+}
+
+/// 철도시설 침수경보 사례 (강우·침수 이력 DB)
+model FloodAlertRecord {
+  id                 Int       @id @default(autoincrement())
+  accidentNumber     String    @unique
+  agencyName         String
+  lineName           String
+  siteName           String
+  location           String
+  latitude           Float?
+  longitude          Float?
+  accidentAt         DateTime?
+  accidentAtText     String?
+  rainfallMm         Float?
+  rainfall15mMm      Float?
+  rainfall30mMm      Float?
+  rainfall60mMm      Float?
+  rainfall360mMm     Float?
+  weatherStationCode String?
+  notes              String?   @db.Text
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([agencyName])
+  @@index([lineName])
+  @@index([siteName])
+}
+
+/// 침수경보 대시보드 설정 (뉴스 키워드 등)
+model FloodAlertSetting {
+  id           Int      @id @default(1)
+  newsKeywords Json
+  updatedAt    DateTime @updatedAt
 }
 
 /// 철도안전 투자공시 (연도구분·금액 세로형, 금액 단위: 백만원)

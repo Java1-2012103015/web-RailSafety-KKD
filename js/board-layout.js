@@ -33,12 +33,22 @@ const PORTAL_SECTIONS = [
     key: "dashboard",
     matchPath(path) {
       const current = normalizePortalPath(path);
-      return current === "/dashboard" || current.startsWith("/dashboard/");
+      return (
+        current === "/portal" ||
+        current === "/dashboard" ||
+        current.startsWith("/dashboard/")
+      );
     },
     getActivePath(path = window.location.pathname) {
       const current = normalizePortalPath(path);
+      if (current === "/portal" || current === "/dashboard") {
+        return "/dashboard/accidents";
+      }
       if (current.startsWith("/dashboard/investment-disclosure")) {
         return "/dashboard/investment-disclosure";
+      }
+      if (current.startsWith("/dashboard/pre-flood-alert")) {
+        return "/dashboard/pre-flood-alert";
       }
       return "/dashboard/accidents";
     },
@@ -55,6 +65,7 @@ const PORTAL_SECTIONS = [
     defaultItems: [
       { title: "철도사고·장애", path: "/dashboard/accidents" },
       { title: "철도안전투자공시", path: "/dashboard/investment-disclosure" },
+      { title: "철도시설사전침수경보", path: "/dashboard/pre-flood-alert" },
     ],
   },
   {
@@ -62,10 +73,15 @@ const PORTAL_SECTIONS = [
     matchPath(path) {
       const current = normalizePortalPath(path);
       if (current.startsWith("/dashboard/")) return false;
-      return current.startsWith("/accidents") || current.startsWith("/investment-disclosure");
+      return (
+        current.startsWith("/accidents") ||
+        current.startsWith("/investment-disclosure") ||
+        current.startsWith("/flood-alert")
+      );
     },
     getActivePath(path = window.location.pathname) {
       const current = normalizePortalPath(path);
+      if (current.startsWith("/flood-alert")) return "/flood-alert";
       if (current.startsWith("/investment-disclosure")) return "/investment-disclosure";
       return "/accidents";
     },
@@ -76,6 +92,7 @@ const PORTAL_SECTIONS = [
     defaultItems: [
       { title: "철도사고장애정보 DB", path: "/accidents" },
       { title: "철도안전 투자공시 DB", path: "/investment-disclosure" },
+      { title: "철도시설침수경보 DB", path: "/flood-alert" },
     ],
   },
 ];
@@ -113,15 +130,59 @@ function subnavLinkClass(active) {
     : "portal-subnav-link";
 }
 
+function mergeSectionDefaultItems(children, defaults) {
+  const merged = [...(children ?? [])];
+  const childPaths = new Set(merged.map((child) => normalizePortalPath(child.path)));
+
+  for (const item of defaults ?? []) {
+    const path = normalizePortalPath(item.path);
+    if (!path || childPaths.has(path)) continue;
+    merged.push({ ...item, children: [] });
+  }
+
+  const order = new Map((defaults ?? []).map((item, index) => [normalizePortalPath(item.path), index]));
+  merged.sort((a, b) => {
+    const aOrder = order.get(normalizePortalPath(a.path));
+    const bOrder = order.get(normalizePortalPath(b.path));
+    const aIndex = aOrder === undefined ? Number.MAX_SAFE_INTEGER : aOrder;
+    const bIndex = bOrder === undefined ? Number.MAX_SAFE_INTEGER : bOrder;
+    return aIndex - bIndex || String(a.title).localeCompare(String(b.title), "ko");
+  });
+
+  return merged;
+}
+
+function enrichMenusWithSectionDefaults(menus) {
+  return (menus ?? []).map((menu) => {
+    const section = PORTAL_SECTIONS.find((item) => {
+      const sectionMenu = item.findMenu([menu]);
+      return sectionMenu?.id === menu.id || sectionMenu?.title === menu.title;
+    });
+
+    if (!section?.defaultItems?.length) {
+      return menu;
+    }
+
+    return {
+      ...menu,
+      children: mergeSectionDefaultItems(menu.children, section.defaultItems),
+    };
+  });
+}
+
 function getSectionSidebarItems(section, menus) {
   const sectionMenu = section.findMenu(menus ?? []);
   const children = (sectionMenu?.children ?? []).filter((child) => child.path);
+  const defaults = section.defaultItems ?? [];
 
-  if (children.length) {
-    return { sectionTitle: sectionMenu?.title ?? section.defaultTitle, items: children };
+  if (!children.length) {
+    return { sectionTitle: section.defaultTitle, items: defaults };
   }
 
-  return { sectionTitle: section.defaultTitle, items: section.defaultItems };
+  return {
+    sectionTitle: sectionMenu?.title ?? section.defaultTitle,
+    items: mergeSectionDefaultItems(children, defaults),
+  };
 }
 
 function ensurePortalSubnavStyles() {

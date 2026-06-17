@@ -2,6 +2,7 @@ export const EXTERNAL_API_TYPES = {
   ROAD_ADDRESS: "ROAD_ADDRESS",
   MAP_ADDRESS: "MAP_ADDRESS",
   WEATHER: "WEATHER",
+  NEWS: "NEWS",
 } as const;
 
 export type ExternalApiType = (typeof EXTERNAL_API_TYPES)[keyof typeof EXTERNAL_API_TYPES];
@@ -21,12 +22,17 @@ export const EXTERNAL_API_DEFAULTS: Array<{
   {
     apiType: EXTERNAL_API_TYPES.MAP_ADDRESS,
     name: "지도 주소 검색 API",
-    endpointUrl: "",
+    endpointUrl: "https://api.vworld.kr/req/address",
   },
   {
     apiType: EXTERNAL_API_TYPES.WEATHER,
-    name: "기상정보 API",
+    name: "기상청 강우 API (침수경보, 선택)",
     endpointUrl: "https://apis.data.go.kr/1360000/AsosHourlyInfoService/getWthrDataList",
+  },
+  {
+    apiType: EXTERNAL_API_TYPES.NEWS,
+    name: "기상·재난 뉴스 API",
+    endpointUrl: "https://openapi.naver.com/v1/search/news",
   },
 ];
 

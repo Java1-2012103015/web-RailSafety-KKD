@@ -20,7 +20,7 @@ async function initNoticeDetailPage() {
   if (!noticeId) {
     loadingEl?.classList.add("hidden");
     if (errorEl) {
-      errorEl.textContent = "잘못된 공지사항 주소입니다.";
+      errorEl.textContent = "잘못된 게시물 주소입니다.";
       errorEl.classList.remove("hidden");
     }
     return;
@@ -30,11 +30,20 @@ async function initNoticeDetailPage() {
     const result = await apiFetch(`/api/notices/${noticeId}`, { auth: true });
     currentNotice = result.data;
 
+    const boardLabel = currentNotice.boardType === "ARCHIVE" ? "자료실" : "공지사항";
+    const listUrl = currentNotice.boardType === "ARCHIVE" ? "/archive" : "/notices";
+
     document.title = `${currentNotice.title} | 철도안전정보종합관리시스템`;
     document.getElementById("notice-detail-title").textContent = currentNotice.title;
     document.getElementById("notice-detail-author").textContent = `작성자: ${currentNotice.authorName}`;
-    document.getElementById("notice-detail-date").textContent = `등록일: ${formatNoticeDateTime(currentNotice.createdAt)}`;
+    document.getElementById("notice-detail-date").textContent = `등록일: ${formatNoticeDate(noticePostedAt(currentNotice))} · ${boardLabel}`;
     document.getElementById("notice-detail-body").textContent = currentNotice.content;
+
+    const backLink = document.getElementById("notice-detail-back-link");
+    if (backLink) {
+      backLink.href = listUrl;
+      backLink.textContent = `${boardLabel} 목록으로`;
+    }
 
     const actions = document.getElementById("notice-admin-actions");
     if (actions) {
@@ -48,7 +57,7 @@ async function initNoticeDetailPage() {
     console.error(error);
     loadingEl?.classList.add("hidden");
     if (errorEl) {
-      errorEl.textContent = error.message || "공지사항을 불러오지 못했습니다.";
+      errorEl.textContent = error.message || "게시물을 불러오지 못했습니다.";
       errorEl.classList.remove("hidden");
     }
   }

@@ -1,0 +1,21 @@
+# 웹 서버(211.188.35.233 등) 앞단 nginx 예시
+# 413 Payload Too Large — 기본 client_body_max_size(1m) 때문에 엑셀 일괄등록이 실패할 수 있음
+
+server {
+    listen 80;
+    server_name 211.188.35.233;
+
+    # 엑셀 일괄등록 JSON — Express는 200mb 허용, nginx도 맞춰야 함
+    client_max_body_size 200m;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+    }
+}

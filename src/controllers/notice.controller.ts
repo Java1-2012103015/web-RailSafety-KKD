@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { NoticeService } from "../services/notice.service";
+import { NoticeService, type NoticeInput } from "../services/notice.service";
 import { HttpError } from "../utils/http-error";
 
 export class NoticeController {
@@ -14,8 +14,13 @@ export class NoticeController {
 
       const page = Math.max(1, Number(req.query.page) || 1);
       const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize) || 10));
+      const boardType = typeof req.query.boardType === "string" ? req.query.boardType : undefined;
+      const includeHidden = req.query.includeHidden === "true" || req.query.includeHidden === "1";
 
-      const result = await this.noticeService.listNotices(page, pageSize, auth);
+      const result = await this.noticeService.listNotices(page, pageSize, auth, {
+        boardType,
+        includeHidden,
+      });
 
       res.status(200).json({
         message: "Notices retrieved successfully.",
@@ -62,7 +67,7 @@ export class NoticeController {
         throw new HttpError(401, "Unauthorized.");
       }
 
-      const notice = await this.noticeService.createNotice(req.body as { title?: string; content?: string }, auth);
+      const notice = await this.noticeService.createNotice(req.body as NoticeInput, auth);
 
       res.status(201).json({
         message: "Notice created successfully.",
@@ -81,7 +86,7 @@ export class NoticeController {
       }
 
       const id = Number(req.params.id);
-      const notice = await this.noticeService.updateNotice(id, req.body as { title?: string; content?: string }, auth);
+      const notice = await this.noticeService.updateNotice(id, req.body as NoticeInput, auth);
 
       res.status(200).json({
         message: "Notice updated successfully.",

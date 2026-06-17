@@ -1,6 +1,7 @@
 const PUBLIC_DASHBOARD_ITEMS = [
   { title: "사고·장애정보 대시보드", path: "/public/dashboard/accidents" },
   { title: "투자공시 대시보드", path: "/public/dashboard/investment-disclosure" },
+  { title: "사전침수경보 대시보드", path: "/public/dashboard/pre-flood-alert" },
 ];
 
 function normalizePublicPath(path) {
@@ -18,6 +19,9 @@ function getPublicDashboardActivePath(path = window.location.pathname) {
   }
   if (current.startsWith("/public/dashboard/investment-disclosure")) {
     return "/public/dashboard/investment-disclosure";
+  }
+  if (current.startsWith("/public/dashboard/pre-flood-alert")) {
+    return "/public/dashboard/pre-flood-alert";
   }
   return current;
 }

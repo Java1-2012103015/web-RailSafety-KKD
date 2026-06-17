@@ -22,24 +22,45 @@ function formatNoticeDateTime(value) {
   });
 }
 
+function noticePostedAt(notice) {
+  return notice?.postedAt ?? notice?.createdAt;
+}
+
 function noticeDetailUrl(id) {
   return `/notices/detail?id=${id}`;
 }
 
-function renderNoticeListItem(notice, { compact = false } = {}) {
+function renderNoticeListItem(notice, { compact = false, showAdminControls = false } = {}) {
   const titleClass = compact
     ? "min-w-0 flex-1 truncate text-gray-800 transition group-hover:text-navy-800 group-hover:underline"
     : "min-w-0 flex-1 truncate font-medium text-gray-900 transition group-hover:text-navy-800 group-hover:underline";
 
+  const hiddenBadge =
+    notice.visible === false
+      ? '<span class="shrink-0 rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600">숨김</span>'
+      : "";
+
+  const adminControls =
+    showAdminControls && typeof canBoardAction === "function" && canBoardAction(notice.boardType, "update")
+      ? `<button
+          type="button"
+          class="notice-visibility-toggle shrink-0 rounded border border-gray-300 px-2 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50"
+          data-notice-id="${notice.id}"
+        >${notice.visible ? "숨기기" : "보이기"}</button>`
+      : "";
+
   return `
-    <li>
-      <a
-        href="${noticeDetailUrl(notice.id)}"
-        class="group flex items-center justify-between gap-4 px-5 py-3 text-sm transition hover:bg-gray-50"
-      >
-        <p class="${titleClass}">· ${escapeHtml(notice.title)}</p>
-        <span class="shrink-0 text-xs text-gray-500 sm:text-sm">${formatNoticeDate(notice.createdAt)}</span>
-      </a>
+    <li class="${notice.visible === false ? "bg-gray-50/80" : ""}" data-notice-id="${notice.id}">
+      <div class="flex items-center gap-2 px-5 py-3 text-sm">
+        <a href="${noticeDetailUrl(notice.id)}" class="group flex min-w-0 flex-1 items-center justify-between gap-4 transition hover:bg-gray-50 -mx-2 px-2 py-1 rounded">
+          <p class="${titleClass}">· ${escapeHtml(notice.title)}</p>
+          <span class="flex shrink-0 items-center gap-2">
+            ${hiddenBadge}
+            <span class="text-xs text-gray-500 sm:text-sm">${formatNoticeDate(noticePostedAt(notice))}</span>
+          </span>
+        </a>
+        ${adminControls}
+      </div>
     </li>
   `;
 }
@@ -52,16 +73,35 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
-async function fetchNotices({ page = 1, pageSize = 10 } = {}) {
+async function fetchNotices({ page = 1, pageSize = 10, boardType = "NOTICE", includeHidden = false } = {}) {
   const params = new URLSearchParams({
     page: String(page),
     pageSize: String(pageSize),
+    boardType,
   });
+  if (includeHidden) {
+    params.set("includeHidden", "true");
+  }
   const result = await apiFetch(`/api/notices?${params.toString()}`, { auth: true });
   return {
     items: result.data ?? [],
     pagination: result.pagination ?? { page: 1, pageSize, total: 0, totalPages: 0 },
   };
+}
+
+function bindNoticeVisibilityToggles(container, items) {
+  if (!container) return;
+  const byId = new Map(items.map((item) => [String(item.id), item]));
+  container.querySelectorAll(".notice-visibility-toggle").forEach((button) => {
+    button.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const notice = byId.get(button.dataset.noticeId);
+      if (notice && typeof toggleNoticeVisibility === "function") {
+        await toggleNoticeVisibility(notice);
+      }
+    });
+  });
 }
 
 async function loadPortalNotices(limit = 5) {
@@ -71,7 +111,7 @@ async function loadPortalNotices(limit = 5) {
   listEl.innerHTML = `<li class="px-5 py-6 text-center text-sm text-gray-500">공지사항을 불러오는 중...</li>`;
 
   try {
-    const { items } = await fetchNotices({ page: 1, pageSize: limit });
+    const { items } = await fetchNotices({ page: 1, pageSize: limit, boardType: "NOTICE" });
     if (!items.length) {
       listEl.innerHTML = `<li class="px-5 py-6 text-center text-sm text-gray-500">등록된 공지사항이 없습니다.</li>`;
       return;

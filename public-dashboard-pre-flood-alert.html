@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>사전침수경보 대시보드 | 철도안전정보종합관리시스템</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              navy: { 900: "#1f2747", 800: "#253056", 700: "#2e3a67" },
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="/css/branding-logo.css" />
+    <style>
+      #pfa-map {
+        min-height: calc(100vh - 220px);
+        height: calc(100vh - 220px);
+        background: #dfe8d5;
+      }
+      .pfa-map-shell {
+        position: relative;
+      }
+      .pfa-map-legend {
+        position: absolute;
+        left: 12px;
+        bottom: 12px;
+        z-index: 500;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.92);
+        padding: 8px 12px;
+        font-size: 11px;
+        color: #374151;
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+      }
+      .pfa-legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 9999px;
+        display: inline-block;
+        border: 2px solid #fff;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+      }
+      .pfa-risk-marker-wrap {
+        background: transparent;
+        border: none;
+      }
+      .pfa-risk-marker {
+        display: block;
+        width: 22px;
+        height: 22px;
+        border-radius: 9999px;
+        border: 3px solid #ffffff;
+        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.28);
+      }
+      .leaflet-container {
+        font-family: inherit;
+      }
+      .portal-top-header {
+        position: relative;
+        z-index: 1000;
+      }
+    </style>
+  </head>
+  <body
+    data-public-dashboard="true"
+    data-pfa-public="true"
+    class="min-h-screen overflow-x-hidden bg-gray-100 text-gray-800"
+  >
+    <header class="portal-top-header bg-navy-900 text-white">
+      <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+        <a href="/public/dashboard/accidents" class="flex min-w-0 items-center gap-2 sm:gap-3" aria-label="공개 대시보드">
+          <span data-branding-wrap="logo" class="branding-logo-box hidden shrink-0">
+            <img id="branding-logo" alt="CI logo" />
+          </span>
+          <span
+            id="branding-ci-mark"
+            class="hidden shrink-0 rounded bg-white/15 px-2 py-0.5 text-[11px] font-semibold"
+          ></span>
+          <h1 data-branding="system-name" class="truncate text-base font-bold sm:text-lg">
+            철도안전정보종합관리시스템
+          </h1>
+        </a>
+        <a
+          href="/login"
+          class="rounded bg-white px-4 py-2 text-sm font-semibold text-navy-900 transition hover:bg-gray-100"
+        >
+          로그인
+        </a>
+      </div>
+    </header>
+
+    <main class="px-4 py-6 sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-7xl">
+        <div class="flex flex-col gap-6 lg:flex-row lg:items-start">
+          <aside id="public-section-sidebar" class="hidden w-full shrink-0 lg:w-56"></aside>
+          <div class="min-w-0 flex-1 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 class="text-xl font-bold text-gray-900">사전침수경보 대시보드</h2>
+                <p class="mt-1 text-sm text-gray-600">철도시설 종합 침수위험도 모니터링</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                <a href="/login" class="text-sm text-navy-700 hover:underline whitespace-nowrap">로그인 · 침수경보 DB</a>
+                <span class="inline-flex items-center gap-1.5 text-gray-500" title="15분 주기 자동 갱신">
+                  <span
+                    id="pfa-auto-refresh-spinner"
+                    class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-navy-700"
+                    role="status"
+                    aria-label="15분 주기 자동 갱신 중"
+                  ></span>
+                  <span class="text-gray-400">15분 주기 자동 갱신</span>
+                </span>
+                <span>화면 갱신: <span id="pfa-updated-at">-</span></span>
+                <span>강우 동기화: <span id="pfa-rainfall-synced-at">-</span> <span class="text-gray-400">(15분 캐시)</span></span>
+              </div>
+            </div>
+
+            <div id="pfa-loading" class="rounded border border-gray-300 bg-white px-6 py-10 text-center text-sm text-gray-500 shadow-sm">
+              <div class="mx-auto flex flex-col items-center gap-3">
+                <span
+                  class="inline-block h-10 w-10 animate-spin rounded-full border-[3px] border-gray-200 border-t-navy-800"
+                  role="status"
+                  aria-label="데이터 불러오는 중"
+                ></span>
+                <span>데이터를 불러오는 중...</span>
+              </div>
+            </div>
+
+            <div id="pfa-content" class="hidden space-y-4">
+              <section class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+                <div class="pfa-map-shell overflow-hidden rounded border border-gray-300 bg-white shadow-sm">
+                  <div id="pfa-map"></div>
+                  <div class="pfa-map-legend" aria-label="위험도 범례">
+                    <span class="text-[10px] text-gray-500 w-full mb-1">지도 표시: 종합 침수위험도</span>
+                    <span><span class="pfa-legend-dot bg-green-500"></span> 안전</span>
+                    <span><span class="pfa-legend-dot bg-amber-500"></span> 주의</span>
+                    <span><span class="pfa-legend-dot bg-orange-500"></span> 경계</span>
+                    <span><span class="pfa-legend-dot bg-red-500"></span> 위험</span>
+                  </div>
+                </div>
+
+                <aside class="rounded border border-gray-300 bg-white shadow-sm xl:max-h-[calc(100vh-220px)] xl:overflow-hidden flex flex-col">
+                  <div class="border-b border-gray-200 px-4 py-3">
+                    <h3 class="text-sm font-bold text-gray-900">기상·재난 뉴스</h3>
+                  </div>
+                  <ul id="pfa-news-list" class="flex-1 overflow-y-auto"></ul>
+                </aside>
+              </section>
+
+              <section class="grid grid-cols-3 gap-3">
+                <div class="rounded border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                  <p class="text-[11px] font-bold text-gray-500">경계·위험</p>
+                  <p id="pfa-stat-alert" class="mt-1 text-xl font-extrabold text-red-600">0</p>
+                </div>
+                <div class="rounded border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                  <p class="text-[11px] font-bold text-gray-500">주의</p>
+                  <p id="pfa-stat-caution" class="mt-1 text-xl font-extrabold text-amber-600">0</p>
+                </div>
+                <div class="rounded border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                  <p class="text-[11px] font-bold text-gray-500">모니터링 개소</p>
+                  <p id="pfa-stat-facilities" class="mt-1 text-xl font-extrabold text-navy-800">0</p>
+                </div>
+              </section>
+
+              <details class="rounded border border-gray-300 bg-white shadow-sm">
+                <summary class="cursor-pointer border-b border-gray-200 px-5 py-3 text-sm font-bold text-gray-900">
+                  개소별 위험도 현황
+                </summary>
+                <div class="overflow-x-auto">
+                  <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50 text-left text-xs font-semibold text-gray-600">
+                      <tr>
+                        <th class="px-4 py-3">운영기관</th>
+                        <th class="px-4 py-3">노선</th>
+                        <th class="px-4 py-3">구간·시설</th>
+                        <th class="px-4 py-3">종합 위험도</th>
+                        <th class="px-4 py-3">지배 요인</th>
+                        <th class="px-4 py-3">신뢰도</th>
+                        <th class="px-4 py-3">임계 대비</th>
+                      </tr>
+                    </thead>
+                    <tbody id="pfa-alert-table-body" class="divide-y divide-gray-100 text-gray-800"></tbody>
+                  </table>
+                </div>
+              </details>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="mt-8 bg-gray-200" data-branding-wrap="footer">
+      <div class="mx-auto max-w-7xl px-4 py-5 text-xs text-gray-700 sm:px-6 lg:px-8">
+        <p>서울특별시 중구 세종대로 110 | 대표번호 02-1234-5678</p>
+        <p class="mt-1 text-gray-600">Copyright (c) Rail Safety Information System. All rights reserved.</p>
+      </div>
+    </footer>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/usage-tracker.js"></script>
+    <script src="/js/branding.js"></script>
+    <script src="/js/public-board-layout.js"></script>
+    <script src="/js/pre-flood-alert-dashboard.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", initPreFloodAlertDashboard);
+    </script>
+  </body>
+</html>

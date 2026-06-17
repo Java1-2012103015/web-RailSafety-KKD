@@ -10,6 +10,8 @@ import { RoleRepository } from "../repositories/role.repository";
 import { InvestmentDisclosureController } from "../controllers/investment-disclosure.controller";
 import { InvestmentDisclosureService } from "../services/investment-disclosure.service";
 import { InvestmentDisclosureRepository } from "../repositories/investment-disclosure.repository";
+import { FloodAlertController } from "../controllers/flood-alert.controller";
+import { floodAlertService } from "../bootstrap/flood-alert-services";
 
 const router = Router();
 
@@ -27,9 +29,12 @@ const investmentDisclosureRepository = new InvestmentDisclosureRepository();
 const investmentDisclosureService = new InvestmentDisclosureService(investmentDisclosureRepository);
 const investmentDisclosureController = new InvestmentDisclosureController(investmentDisclosureService);
 
+const floodAlertController = new FloodAlertController(floodAlertService);
+
 router.get("/dashboard/stats", dashboardController.getStats);
 router.get("/dashboard/portal-stats", dashboardController.getGuestPortalStats);
 router.get("/investment-disclosure", investmentDisclosureController.getPortalDashboard);
+router.get("/flood-alert/dashboard", floodAlertController.getDashboard);
 router.get("/branding", brandingController.getPublicBranding);
 
 export default router;
