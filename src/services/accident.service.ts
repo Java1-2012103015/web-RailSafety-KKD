@@ -38,7 +38,7 @@ interface DeleteAccidentsInput {
   ids?: unknown;
 }
 
-const BULK_MAX_RECORDS = 10000;
+const BULK_MAX_RECORDS = 20000;
 
 const DETAIL_INT_KEYS = new Set([
   "year", "month", "day", "hour", "minute", "deaths", "seriousInjuries", "minorInjuries",

@@ -14,7 +14,7 @@ import { errorHandler } from "./middlewares/error.middleware";
 const app = express();
 const projectRoot = path.join(__dirname, "..");
 
-app.use(express.json({ limit: "100mb" }));
+app.use(express.json({ limit: "200mb" }));
 
 app.use("/uploads", express.static(path.join(projectRoot, "uploads")));
 

@@ -39,6 +39,8 @@ const LINE_OPTIONS = [
   "공항철도",
 ];
 
+const BULK_MAX_RECORDS = 20000;
+
 const listState = {
   page: 1,
   pageSize: 15,
@@ -529,6 +531,10 @@ async function handleBulkUploadFile(file) {
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
     if (!rows.length) {
       alert("업로드할 데이터가 없습니다.");
+      return;
+    }
+    if (rows.length > BULK_MAX_RECORDS) {
+      alert(`일괄등록은 최대 ${BULK_MAX_RECORDS.toLocaleString("ko-KR")}건까지 가능합니다.`);
       return;
     }
 
