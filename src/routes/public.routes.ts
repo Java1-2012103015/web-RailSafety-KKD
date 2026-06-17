@@ -34,6 +34,7 @@ const floodAlertController = new FloodAlertController(floodAlertService);
 router.get("/dashboard/stats", dashboardController.getStats);
 router.get("/dashboard/portal-stats", dashboardController.getGuestPortalStats);
 router.get("/investment-disclosure", investmentDisclosureController.getPortalDashboard);
+router.get("/investment-disclosure/report", investmentDisclosureController.getPrintReport);
 router.get("/flood-alert/dashboard", floodAlertController.getDashboard);
 router.get("/branding", brandingController.getPublicBranding);
 

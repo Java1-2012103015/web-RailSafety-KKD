@@ -41,8 +41,8 @@ export function formatTotalPlanYearLabel(years: number[]) {
   return years.map((y) => `${y}년`).join(" · ");
 }
 
-export function computeStats(filtered: DisclosureRecord[]) {
-  const totalPlanYears = getTotalPlanYears();
+export function computeStats(filtered: DisclosureRecord[], referenceYear = new Date().getFullYear()) {
+  const totalPlanYears = getTotalPlanYears(referenceYear);
   const planRows = filtered.filter(
     (d) =>
       d.category2.includes("계획") &&

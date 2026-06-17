@@ -83,4 +83,15 @@ export class InvestmentDisclosureController {
       next(error);
     }
   };
+
+  getPrintReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const yearRaw = typeof req.query.year === "string" ? parseInt(req.query.year, 10) : undefined;
+      const disclosureYear = Number.isFinite(yearRaw) ? yearRaw : undefined;
+      const data = await this.service.getPrintReport(disclosureYear);
+      res.status(200).json({ message: "Investment disclosure print report retrieved.", data });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

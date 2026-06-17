@@ -241,10 +241,83 @@ function renderStats(analytics) {
 
 const PIE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#6366f1", "#14b8a6"];
 
+const agencyRateLabelPlugin = createAgencyRateLabelPlugin("agencyRateLabels");
+
+/** 백만원 → 억/조 단위 (데이터 최댓값 기준 자동 선택) */
+function pickTrendMoneyUnit(maxAmountMillion) {
+  if (maxAmountMillion >= 1000000) return { divisor: 1000000, unit: "조" };
+  return { divisor: 100, unit: "억" };
+}
+
+function formatTrendMoney(amountMillion, unitInfo) {
+  if (amountMillion == null || Number.isNaN(amountMillion)) return "-";
+  const value = amountMillion / unitInfo.divisor;
+  if (value === 0) return `0${unitInfo.unit}`;
+  if (unitInfo.unit === "조") {
+    return value >= 10
+      ? `${Math.round(value).toLocaleString()}조`
+      : `${value.toLocaleString("ko-KR", { maximumFractionDigits: 1 })}조`;
+  }
+  return value >= 100
+    ? `${Math.round(value).toLocaleString()}억`
+    : `${value.toLocaleString("ko-KR", { maximumFractionDigits: 1 })}억`;
+}
+
+function formatTrendRate(plan, actual) {
+  if (actual == null || actual === undefined) return "-";
+  if (!plan) return actual > 0 ? "100%+" : "-";
+  return `${((actual / plan) * 100).toFixed(1)}%`;
+}
+
+function renderTrendSummary(data, unitInfo) {
+  const wrap = document.getElementById("inv-trend-summary");
+  if (!wrap) return;
+
+  if (!data?.length) {
+    wrap.innerHTML = "";
+    return;
+  }
+
+  const rows = data
+    .map((d) => {
+      const rate = formatTrendRate(d.plan, d.actual);
+      const rateClass =
+        d.actual == null ? "text-gray-400" : parseFloat(rate) >= 90 ? "text-emerald-700" : "text-amber-700";
+      return `
+        <tr class="border-b border-gray-100">
+          <td class="py-1.5 px-2 font-semibold text-gray-800 whitespace-nowrap">${d.name}</td>
+          <td class="py-1.5 px-2 text-right font-mono text-blue-700">${formatTrendMoney(d.plan, unitInfo)}</td>
+          <td class="py-1.5 px-2 text-right font-mono text-emerald-700">${formatTrendMoney(d.actual, unitInfo)}</td>
+          <td class="py-1.5 px-2 text-right font-mono font-semibold ${rateClass}">${rate}</td>
+        </tr>`;
+    })
+    .join("");
+
+  wrap.innerHTML = `
+    <table class="w-full text-[11px] border-collapse">
+      <thead>
+        <tr class="border-b border-gray-200 text-gray-500">
+          <th class="py-1.5 px-2 text-left font-bold">연도</th>
+          <th class="py-1.5 px-2 text-right font-bold">계획</th>
+          <th class="py-1.5 px-2 text-right font-bold">실적</th>
+          <th class="py-1.5 px-2 text-right font-bold">집행률</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="mt-1.5 text-[10px] text-gray-400 text-right">단위: ${unitInfo.unit}원 · 소계 기준</p>`;
+}
+
 function renderTrendChart(data) {
   destroyInvChart("trend");
   const canvas = document.getElementById("inv-chart-trend");
   if (!canvas || !window.Chart) return;
+
+  const maxAmount = data?.length
+    ? Math.max(...data.flatMap((d) => [d.plan || 0, d.actual || 0]))
+    : 0;
+  const unitInfo = pickTrendMoneyUnit(maxAmount);
+  renderTrendSummary(data, unitInfo);
 
   invCharts.trend = new Chart(canvas, {
     type: "line",
@@ -276,11 +349,18 @@ function renderTrendChart(data) {
         legend: { position: "top" },
         tooltip: {
           callbacks: {
-            label: (ctx) => `${ctx.dataset.label}: ${formatToKoreanWon(ctx.raw)}`,
+            label: (ctx) => `${ctx.dataset.label}: ${formatTrendMoney(ctx.raw, unitInfo)}`,
           },
         },
       },
-      scales: { y: { beginAtZero: true } },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: (value) => formatTrendMoney(value, unitInfo),
+          },
+        },
+      },
     },
   });
 }
@@ -322,7 +402,7 @@ function renderFundingChart(data) {
     },
     options: {
       responsive: true,
-      maintainAspectRatio: false,
+      maintainAspectRatio: true,
       plugins: {
         legend: { display: false },
         tooltip: {
@@ -345,6 +425,90 @@ function renderFundingChart(data) {
       )
       .join("");
   }
+}
+
+function formatCategoryAmount(amountMillion) {
+  if (!amountMillion) return "-";
+  return Number(amountMillion).toLocaleString("ko-KR");
+}
+
+function renderCategoryYearSummary(selectedKey) {
+  const wrap = document.getElementById("inv-category-year-summary");
+  if (!wrap) return;
+
+  const trend = invState.categoryYearTrend;
+  if (!trend) {
+    wrap.innerHTML = "";
+    return;
+  }
+
+  const years = (trend.seriesByCategory.ALL ?? []).map((d) => d.label);
+  const isAll = selectedKey === "ALL";
+  const categoryItems = isAll
+    ? trend.categories.filter((c) => c.value !== "ALL")
+    : trend.categories.filter((c) => c.value === selectedKey);
+
+  if (!categoryItems.length || !years.length) {
+    wrap.innerHTML = "";
+    return;
+  }
+
+  const yearHeaders = years
+    .map((y) => `<th class="py-1.5 px-2 text-right font-bold whitespace-nowrap">${y}</th>`)
+    .join("");
+
+  const rows = categoryItems
+    .map((cat, idx) => {
+      const series = trend.seriesByCategory[cat.value] ?? [];
+      const cells = series
+        .map(
+          (d) =>
+            `<td class="py-1.5 px-2 text-right font-mono text-gray-700">${formatCategoryAmount(d.amount)}</td>`,
+        )
+        .join("");
+      const rowTotal = series.reduce((sum, d) => sum + (d.amount || 0), 0);
+      const colorDot = isAll
+        ? `<span class="inline-block w-2 h-2 rounded-full mr-1.5 shrink-0" style="background:${PIE_COLORS[idx % PIE_COLORS.length]}"></span>`
+        : "";
+      return `
+        <tr class="border-b border-gray-100">
+          <td class="py-1.5 px-2 font-semibold text-gray-800 whitespace-nowrap">${colorDot}${cat.label}</td>
+          ${cells}
+          <td class="py-1.5 px-2 text-right font-mono font-semibold text-gray-900">${formatCategoryAmount(rowTotal)}</td>
+        </tr>`;
+    })
+    .join("");
+
+  let totalRow = "";
+  if (isAll && categoryItems.length > 1) {
+    const allSeries = trend.seriesByCategory.ALL ?? [];
+    const totalCells = allSeries
+      .map(
+        (d) =>
+          `<td class="py-1.5 px-2 text-right font-mono font-semibold text-navy-800">${formatCategoryAmount(d.amount)}</td>`,
+      )
+      .join("");
+    const grandTotal = allSeries.reduce((sum, d) => sum + (d.amount || 0), 0);
+    totalRow = `
+      <tr class="border-t-2 border-gray-300 bg-gray-50">
+        <td class="py-1.5 px-2 font-bold text-gray-900">합계</td>
+        ${totalCells}
+        <td class="py-1.5 px-2 text-right font-mono font-bold text-navy-800">${formatCategoryAmount(grandTotal)}</td>
+      </tr>`;
+  }
+
+  wrap.innerHTML = `
+    <table class="w-full text-[11px] border-collapse">
+      <thead>
+        <tr class="border-b border-gray-200 text-gray-500">
+          <th class="py-1.5 px-2 text-left font-bold whitespace-nowrap">세부 분야</th>
+          ${yearHeaders}
+          <th class="py-1.5 px-2 text-right font-bold whitespace-nowrap">합계</th>
+        </tr>
+      </thead>
+      <tbody>${rows}${totalRow}</tbody>
+    </table>
+    <p class="mt-1.5 text-[10px] text-gray-400 text-right">단위: 백만원 · 계획·소계 기준</p>`;
 }
 
 function populateCategoryYearDropdown(categories) {
@@ -430,6 +594,8 @@ function renderCategoryYearChart(selectedKey) {
       },
     },
   });
+
+  renderCategoryYearSummary(selectedKey);
 }
 
 function renderAgencyChart(data) {
@@ -451,6 +617,7 @@ function renderAgencyChart(data) {
 
   invCharts.agency = new Chart(canvas, {
     type: "bar",
+    plugins: [agencyRateLabelPlugin],
     data: {
       labels: agencyTooltipRows.map((d) => d.name),
       datasets: [

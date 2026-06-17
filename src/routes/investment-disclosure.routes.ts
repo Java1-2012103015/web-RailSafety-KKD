@@ -10,6 +10,7 @@ const service = new InvestmentDisclosureService(repository);
 const controller = new InvestmentDisclosureController(service);
 
 router.get("/", authenticate, controller.getPortalDashboard);
+router.get("/report", authenticate, controller.getPrintReport);
 router.get("/export-csv", authenticate, controller.getPortalExportCsv);
 router.get("/export-rows", authenticate, controller.getPortalExportRows);
 

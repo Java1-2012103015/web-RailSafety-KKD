@@ -9,6 +9,7 @@ import {
   paginateRecords,
   type DisclosureFilters,
 } from "../utils/investment-disclosure-analytics";
+import { buildInvestmentDisclosureReport } from "../utils/investment-disclosure-report";
 import {
   buildInvestmentDisclosureExportCsv,
   parseInvestmentDisclosureCsv,
@@ -110,5 +111,10 @@ export class InvestmentDisclosureService {
   async getFilteredExportRows(filters: DisclosureFilters) {
     const all = await this.loadRecords();
     return filterRowsForTable(all, filters);
+  }
+
+  async getPrintReport(disclosureYear?: number) {
+    const all = await this.loadRecords();
+    return buildInvestmentDisclosureReport(all, disclosureYear);
   }
 }

@@ -86,6 +86,14 @@ app.get("/investment-disclosure", (_req, res) => {
   res.sendFile(path.join(projectRoot, "investment-disclosure.html"));
 });
 
+app.get("/investment-disclosure/report", (_req, res) => {
+  res.sendFile(path.join(projectRoot, "investment-disclosure-report.html"));
+});
+
+app.get("/public/investment-disclosure/report", (_req, res) => {
+  res.sendFile(path.join(projectRoot, "investment-disclosure-report.html"));
+});
+
 app.get("/flood-alert", (_req, res) => {
   res.sendFile(path.join(projectRoot, "flood-alert.html"));
 });

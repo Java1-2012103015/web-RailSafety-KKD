@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>철도안전투자 공시현황 보고서 | 철도안전정보종합관리시스템</title>
+    <link rel="stylesheet" href="/css/investment-disclosure-report.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="/js/investment-disclosure-agency-label-plugin.js"></script>
+  </head>
+  <body class="inv-report-page" data-inv-report-public="false">
+    <div class="inv-report-toolbar no-print">
+      <div class="inv-report-toolbar-start">
+        <h1>철도안전투자 공시현황 · 인쇄용 보고서</h1>
+        <p class="inv-report-toolbar-hint">표지 문구 클릭 수정 · 인쇄 시 상단 10mm 여백 포함 · 머리글/바닥글 끄기</p>
+      </div>
+      <div class="inv-report-toolbar-actions">
+        <a id="inv-report-back" href="/dashboard/investment-disclosure" class="btn-back">돌아가기</a>
+        <button id="inv-report-print-btn" type="button" class="btn-print">A4 인쇄</button>
+      </div>
+    </div>
+
+    <div id="inv-report-print-help" class="inv-report-print-help hidden" role="dialog" aria-modal="true" aria-labelledby="inv-report-print-help-title">
+      <div class="inv-report-print-help-box">
+        <h3 id="inv-report-print-help-title">깔끔한 인쇄 설정</h3>
+        <p>브라우저가 자동으로 넣는 <strong>날짜·제목·URL·페이지 번호</strong>를 없애려면 인쇄 창에서 아래를 설정하세요.</p>
+        <ol>
+          <li><strong>머리글 및 바닥글</strong> (Headers and footers) → <strong>끄기</strong></li>
+          <li><strong>여백</strong> (Margins) → <strong>없음</strong> 또는 <strong>최소</strong> (보고서에 상단 10mm 여백이 포함되어 있습니다)</li>
+        </ol>
+        <label class="inv-report-print-help-skip">
+          <input id="inv-report-print-help-skip" type="checkbox" />
+          다시 보지 않기
+        </label>
+        <div class="inv-report-print-help-actions">
+          <button id="inv-report-print-help-cancel" type="button" class="inv-report-print-help-cancel">취소</button>
+          <button id="inv-report-print-help-go" type="button" class="inv-report-print-help-go">인쇄</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="inv-report-loading" class="inv-report-loading">보고서를 생성하는 중...</div>
+    <div id="inv-report-error" class="inv-report-error hidden"></div>
+
+    <article id="inv-report-document" class="inv-report-document hidden" aria-live="polite"></article>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/investment-disclosure-report.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", initInvestmentDisclosureReportPage);
+    </script>
+  </body>
+</html>
