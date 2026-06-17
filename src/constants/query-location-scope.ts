@@ -84,6 +84,25 @@ const INSTITUTION_ALIASES: Record<string, string[]> = {
   서울교통: ["서울교통", "서울교통공사"],
 };
 
+/** 기관별 대표 노선 — 등록기관 미입력 시 노선명으로 권한 매칭 */
+const INSTITUTION_LINE_NAMES: Record<string, string[]> = {
+  김포골드: ["김포골드라인"],
+  용인: ["용인에버라인"],
+  의정부: ["의정부경전철선"],
+  구리도시공사: [],
+  서울교통공사: ["수도권 전철5호선", "수도권 전철7호선"],
+};
+
+const LINE_SCOPE_ALIASES: Record<string, string[]> = {
+  "수도권 전철5호선": ["수도권 전철5호선", "수도권도시철도 5호선", "5호선"],
+  "수도권 전철7호선": ["수도권 전철7호선", "수도권도시철도 7호선", "7호선"],
+  "5호선": ["5호선", "수도권 전철5호선", "수도권도시철도 5호선"],
+  "7호선": ["7호선", "수도권 전철7호선", "수도권도시철도 7호선"],
+  김포골드라인: ["김포골드라인"],
+  의정부경전철선: ["의정부경전철선"],
+  용인에버라인: ["용인에버라인"],
+};
+
 /** 엑셀/DB에서 쓰이는 역명 변형 (CB·CC 역 컬럼) */
 const STATION_NAME_ALIASES: Record<string, string[]> = {
   하남검단산: ["하남검단산", "하남검단"],
@@ -220,6 +239,7 @@ function stationAccidentMatch(stationName: string): Prisma.RailwayAccidentWhereI
 }
 
 type LocationScopeRow = {
+  lineName?: string | null;
   location?: string | null;
   detail?: {
     registrationAgency?: string | null;
@@ -235,6 +255,49 @@ function agencyMatchesInstitution(agency: string, institutionName: string): bool
   return variants.some((variant) => agency.includes(variant));
 }
 
+function expandLineSearchTerms(canonicalLine: string): string[] {
+  const base = canonicalLine.trim();
+  if (!base) return [];
+  return [...new Set([base, ...(LINE_SCOPE_ALIASES[base] ?? [])])];
+}
+
+function lineNameMatchesInstitution(institutionName: string, lineName: string): boolean {
+  const canonicalLines = INSTITUTION_LINE_NAMES[institutionName] ?? [];
+  const normalizedLine = lineName.trim();
+  if (!normalizedLine || !canonicalLines.length) return false;
+
+  return canonicalLines.some((canonical) =>
+    expandLineSearchTerms(canonical).some(
+      (term) => normalizedLine === term || normalizedLine.includes(term) || term.includes(normalizedLine),
+    ),
+  );
+}
+
+function buildInstitutionLineWhere(institutionName: string): Prisma.RailwayAccidentWhereInput[] {
+  const canonicalLines = INSTITUTION_LINE_NAMES[institutionName] ?? [];
+  const conditions: Prisma.RailwayAccidentWhereInput[] = [];
+
+  for (const canonical of canonicalLines) {
+    for (const term of expandLineSearchTerms(canonical)) {
+      conditions.push({ lineName: term });
+      conditions.push({ lineName: { contains: term } });
+    }
+  }
+
+  return conditions;
+}
+
+function institutionScopeMatch(
+  row: LocationScopeRow & { lineName?: string | null },
+  rule: LocationScopeRule,
+): boolean {
+  const agency = row.detail?.registrationAgency?.trim() ?? "";
+  const lineName = row.lineName?.trim() ?? "";
+  const agencyMatch = Boolean(agency) && agencyMatchesInstitution(agency, rule.institutionName);
+  const lineMatch = Boolean(lineName) && lineNameMatchesInstitution(rule.institutionName, lineName);
+  return agencyMatch || lineMatch;
+}
+
 function detailMatchesStation(row: LocationScopeRow, stationName: string): boolean {
   const searchTerms = expandStationSearchTerms(stationName).map(normalizeStationLabel);
   const tokens = collectStationTokens(row).map(normalizeStationLabel);
@@ -245,11 +308,8 @@ function detailMatchesStation(row: LocationScopeRow, stationName: string): boole
 export function rowMatchesLocationScope(row: LocationScopeRow, rules: LocationScopeRule[]): boolean {
   if (!rules.length) return true;
 
-  const agency = row.detail?.registrationAgency?.trim() ?? "";
-  if (!agency) return false;
-
   return rules.some((rule) => {
-    if (!agencyMatchesInstitution(agency, rule.institutionName)) return false;
+    if (!institutionScopeMatch(row, rule)) return false;
     if (!rule.stationNames?.length) return true;
     if (!row.detail) return false;
     return rule.stationNames.some((stationName) => detailMatchesStation(row, stationName));
@@ -284,13 +344,17 @@ export function buildLocationScopeWhere(rules: LocationScopeRule[]): Prisma.Rail
 
   return {
     OR: rules.map((rule) => {
+      const institutionMatch: Prisma.RailwayAccidentWhereInput = {
+        OR: [{ detail: institutionDetailMatch(rule.institutionName) }, ...buildInstitutionLineWhere(rule.institutionName)],
+      };
+
       if (!rule.stationNames?.length) {
-        return { detail: institutionDetailMatch(rule.institutionName) };
+        return institutionMatch;
       }
 
       return {
         AND: [
-          { detail: institutionDetailMatch(rule.institutionName) },
+          institutionMatch,
           {
             OR: rule.stationNames.map((stationName) => stationAccidentMatch(stationName)),
           },

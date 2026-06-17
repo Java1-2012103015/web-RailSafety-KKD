@@ -211,7 +211,7 @@ export class AccidentService {
             throw new HttpError(403, "Only enforced line is allowed for this role.");
           }
           finalLineNames = [queryPermission.enforcedLineName];
-        } else if (permissionLineNames && permissionLineNames.length > 0) {
+        } else if (permissionLocationScope.length === 0 && permissionLineNames && permissionLineNames.length > 0) {
           if (finalLineNames && finalLineNames.length > 0) {
             const intersection = finalLineNames.filter((line) => permissionLineNames.includes(line));
             if (intersection.length === 0) {
@@ -291,6 +291,26 @@ export class AccidentService {
         order: "desc",
       },
     };
+  }
+
+  async getFilterOptions(auth: { roleId: number; role: string }): Promise<{ registrationAgencies: string[] }> {
+    if (auth.role === ROLES.ADMIN) {
+      const registrationAgencies = await this.accidentRepository.findDistinctRegistrationAgencies();
+      return { registrationAgencies };
+    }
+
+    const queryPermission = await this.permissionRepository.findRoleQueryPermission(auth.roleId);
+    const locationScope = normalizeLocationScope(queryPermission?.allowedLocationScope);
+
+    if (locationScope.length > 0) {
+      const registrationAgencies = [...new Set(locationScope.map((rule) => rule.institutionName))].sort((a, b) =>
+        a.localeCompare(b, "ko"),
+      );
+      return { registrationAgencies };
+    }
+
+    const registrationAgencies = await this.accidentRepository.findDistinctRegistrationAgencies();
+    return { registrationAgencies };
   }
 
   async getAccidentById(

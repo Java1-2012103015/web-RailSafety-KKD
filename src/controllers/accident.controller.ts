@@ -5,6 +5,26 @@ import { HttpError } from "../utils/http-error";
 export class AccidentController {
   constructor(private readonly accidentService: AccidentService) {}
 
+  getFilterOptions = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user) {
+        throw new HttpError(401, "Unauthorized.");
+      }
+
+      const result = await this.accidentService.getFilterOptions({
+        roleId: req.user.roleId,
+        role: req.user.role,
+      });
+
+      res.status(200).json({
+        message: "Accident filter options retrieved successfully.",
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   getAccidents = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const {

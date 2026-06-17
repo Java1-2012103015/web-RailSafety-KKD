@@ -214,6 +214,30 @@ function populateLineFilter() {
   if (current) select.value = current;
 }
 
+async function populateAgencyFilter() {
+  const select = document.getElementById("filter-agency");
+  if (!select) return;
+
+  const current = select.value;
+  select.innerHTML = '<option value="">전체</option>';
+
+  try {
+    const result = await apiFetch("/api/accidents/filter-options", { auth: true });
+    const agencies = result.data?.registrationAgencies ?? [];
+    for (const agency of agencies) {
+      const option = document.createElement("option");
+      option.value = agency;
+      option.textContent = agency;
+      select.appendChild(option);
+    }
+    if (current && agencies.includes(current)) {
+      select.value = current;
+    }
+  } catch (error) {
+    console.error("등록기관 목록을 불러오지 못했습니다.", error);
+  }
+}
+
 function buildQueryParams(overrides = {}) {
   const params = new URLSearchParams();
   params.set("page", String(overrides.page ?? listState.page));
@@ -1045,6 +1069,7 @@ async function loadAccidentsPage() {
     initDefaultDates();
     applyFiltersFromDashboardUrl();
     populateLineFilter();
+    await populateAgencyFilter();
     bindListEvents();
     await loadAccidentsList();
     return;

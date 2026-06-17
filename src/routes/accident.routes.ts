@@ -23,6 +23,7 @@ const accidentService = new AccidentService(
 );
 const accidentController = new AccidentController(accidentService);
 
+router.get("/filter-options", authenticate, accidentController.getFilterOptions);
 router.get("/", authenticate, accidentController.getAccidents);
 router.get("/:id", authenticate, accidentController.getAccidentById);
 router.post("/bulk", authenticate, accidentController.bulkUpsertAccidents);

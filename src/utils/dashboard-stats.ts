@@ -316,11 +316,14 @@ export function filterRowsByQueryPermission(
   if (queryPermission.enforcedLineName) {
     filtered = filtered.filter((row) => row.lineName === queryPermission.enforcedLineName);
   } else {
-    const allowedLineNames = Array.isArray(queryPermission.allowedLineNames)
-      ? (queryPermission.allowedLineNames as string[])
-      : undefined;
-    if (allowedLineNames?.length) {
-      filtered = filtered.filter((row) => allowedLineNames.includes(row.lineName));
+    const locationScope = normalizeLocationScope(queryPermission.allowedLocationScope);
+    if (!locationScope.length) {
+      const allowedLineNames = Array.isArray(queryPermission.allowedLineNames)
+        ? (queryPermission.allowedLineNames as string[])
+        : undefined;
+      if (allowedLineNames?.length) {
+        filtered = filtered.filter((row) => allowedLineNames.includes(row.lineName));
+      }
     }
   }
 
