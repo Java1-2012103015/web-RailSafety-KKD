@@ -16,6 +16,7 @@ import { ALL_ACCIDENT_DETAIL_COLUMN_KEYS } from "../constants/accident-detail-co
 import { ALL_ACCIDENT_DETAIL_TAB_IDS } from "../constants/accident-detail-ui-tabs";
 import { parseQueryEndDate, parseQueryStartDate } from "../utils/query-date";
 import {
+  buildInvestigationReportLinksFromUrls,
   formatInvestigationReportSavedAtText,
   inferInvestigationReportFilename,
   normalizeInvestigationReportLinksInput,
@@ -44,6 +45,13 @@ interface BulkAccidentInput {
 
 interface DeleteAccidentsInput {
   ids?: unknown;
+}
+
+interface BulkInvestigationReportInput {
+  records?: Array<{
+    accidentNumber?: unknown;
+    urls?: unknown;
+  }>;
 }
 
 const BULK_MAX_RECORDS = 20000;
@@ -499,6 +507,70 @@ export class AccidentService {
 
     const deleted = await this.accidentRepository.deleteByIds(Array.from(new Set(ids)));
     return { deleted };
+  }
+
+  async bulkUpdateInvestigationReports(
+    input: BulkInvestigationReportInput,
+    auth: { roleId: number; role: string },
+  ) {
+    if (auth.role !== ROLES.ADMIN) {
+      throw new HttpError(403, "Only admin can bulk update investigation reports.");
+    }
+
+    const records = Array.isArray(input.records) ? input.records : [];
+    if (records.length === 0) {
+      throw new HttpError(400, "records is required.");
+    }
+    if (records.length > BULK_MAX_RECORDS) {
+      throw new HttpError(400, `일괄등록은 최대 ${BULK_MAX_RECORDS.toLocaleString("ko-KR")}건까지 가능합니다.`);
+    }
+
+    const savedAtText = formatInvestigationReportSavedAtText();
+    const normalized: Array<{ accidentNumber: string; investigationReportLinks: string; savedAtText: string }> = [];
+
+    for (const [index, record] of records.entries()) {
+      const accidentNumber = String(record.accidentNumber ?? "").trim();
+      if (!accidentNumber) {
+        continue;
+      }
+
+      const urls = Array.isArray(record.urls)
+        ? record.urls.map((value) => String(value ?? "").trim()).filter(Boolean)
+        : [];
+
+      let links;
+      try {
+        links = buildInvestigationReportLinksFromUrls(urls);
+      } catch (error) {
+        throw new HttpError(
+          400,
+          `records[${index}].urls: ${error instanceof Error ? error.message : "Invalid URLs."}`,
+        );
+      }
+
+      if (links.length === 0) {
+        continue;
+      }
+
+      normalized.push({
+        accidentNumber,
+        investigationReportLinks: serializeInvestigationReportLinks(links),
+        savedAtText,
+      });
+    }
+
+    if (normalized.length === 0) {
+      throw new HttpError(400, "No valid records with accident number and attachment URLs.");
+    }
+
+    const skipped = records.length - normalized.length;
+    const result = await this.accidentRepository.bulkUpdateInvestigationReportLinksByAccidentNumber(normalized);
+
+    return {
+      updated: result.updated,
+      notFound: result.notFound,
+      skipped: skipped + result.skipped,
+    };
   }
 
   async updateInvestigationReports(

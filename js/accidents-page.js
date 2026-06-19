@@ -504,6 +504,175 @@ function mapExcelRowToBulkPayload(rawRow, positionValues = {}) {
   };
 }
 
+const ATTACHMENT_SERIAL_HEADER = "사고 일련번호";
+const ATTACHMENT_SERIAL_HEADERS = [ATTACHMENT_SERIAL_HEADER, "일련번호", "사고번호"];
+const ATTACHMENT_URL_HEADERS = [
+  "첨부1 url",
+  "첨부2 url",
+  "첨부3 url",
+  "첨부4 url",
+  "첨부5 url",
+];
+const ATTACHMENT_SAMPLE_ROWS = [
+  {
+    [ATTACHMENT_SERIAL_HEADER]: "20230101001",
+    "첨부1 url": "https://example.com/reports/20230101001-1.pdf",
+    "첨부2 url": "https://example.com/reports/20230101001-2.pdf",
+    "첨부3 url": "",
+    "첨부4 url": "",
+    "첨부5 url": "",
+  },
+  {
+    [ATTACHMENT_SERIAL_HEADER]: "20230115023",
+    "첨부1 url": "https://example.com/reports/20230115023.pdf",
+    "첨부2 url": "",
+    "첨부3 url": "",
+    "첨부4 url": "",
+    "첨부5 url": "",
+  },
+  {
+    [ATTACHMENT_SERIAL_HEADER]: "20230208045",
+    "첨부1 url": "https://example.com/reports/20230208045-main.pdf",
+    "첨부2 url": "https://example.com/reports/20230208045-appendix.pdf",
+    "첨부3 url": "https://example.com/reports/20230208045-photo.zip",
+    "첨부4 url": "",
+    "첨부5 url": "",
+  },
+];
+
+function normalizeExcelHeader(value) {
+  return String(value ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function normalizeAttachmentHeader(value) {
+  return String(value ?? "")
+    .trim()
+    .replace(/\s+/g, "")
+    .toLowerCase();
+}
+
+function pickExcelRowValue(rawRow, headerCandidates, { compact = false } = {}) {
+  const normalize = compact ? normalizeAttachmentHeader : normalizeExcelHeader;
+  const candidateSet = new Set(headerCandidates.map((header) => normalize(header)));
+  for (const [key, value] of Object.entries(rawRow)) {
+    if (!candidateSet.has(normalize(key))) continue;
+    if (value === undefined || value === null || value === "") continue;
+    return String(value).trim();
+  }
+  return "";
+}
+
+function mapAttachmentExcelRow(rawRow) {
+  const accidentNumber = pickExcelRowValue(rawRow, ATTACHMENT_SERIAL_HEADERS, { compact: true });
+  const urls = ATTACHMENT_URL_HEADERS.map((header) =>
+    pickExcelRowValue(rawRow, [header], { compact: true }),
+  ).filter(Boolean);
+  return { accidentNumber, urls };
+}
+
+function downloadAttachmentSampleForm() {
+  if (typeof XLSX === "undefined") {
+    alert("엑셀 라이브러리를 불러오지 못했습니다. 페이지를 새로고침해 주세요.");
+    return;
+  }
+
+  const headers = [ATTACHMENT_SERIAL_HEADER, ...ATTACHMENT_URL_HEADERS];
+  const body = ATTACHMENT_SAMPLE_ROWS.map((row) => headers.map((header) => row[header] ?? ""));
+  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...body]);
+  worksheet["!cols"] = headers.map((header, index) => ({
+    wch: Math.min(
+      48,
+      Math.max(header.length + 2, ...body.map((row) => String(row[index] ?? "").length + 2)),
+    ),
+  }));
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "첨부파일샘플");
+  XLSX.writeFile(workbook, "첨부파일_DB_업데이트_샘플.xlsx");
+}
+
+async function handleAttachmentUploadFile(file) {
+  if (!file) return;
+  if (typeof XLSX === "undefined") {
+    alert("엑셀 라이브러리를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.");
+    return;
+  }
+
+  const btn = document.getElementById("accidents-attachment-upload-btn");
+  const originalLabel = btn?.textContent;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "업로드 중...";
+  }
+
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: "array" });
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) {
+      alert("엑셀 시트를 찾을 수 없습니다.");
+      return;
+    }
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    if (!rows.length) {
+      alert("업로드할 데이터가 없습니다.");
+      return;
+    }
+    if (rows.length > BULK_MAX_RECORDS) {
+      alert(`첨부파일 업데이트는 최대 ${BULK_MAX_RECORDS.toLocaleString("ko-KR")}건까지 가능합니다.`);
+      return;
+    }
+
+    const parsedRows = rows.map((rawRow) => mapAttachmentExcelRow(rawRow));
+    const records = parsedRows.filter((record) => record.accidentNumber && record.urls.length > 0);
+    const ignoredRows = rows.length - records.length;
+
+    if (!records.length) {
+      alert("사고 일련번호와 첨부 URL이 있는 행을 찾을 수 없습니다.");
+      return;
+    }
+
+    let updated = 0;
+    let notFound = 0;
+    let skipped = 0;
+    for (let offset = 0; offset < records.length; offset += BULK_CHUNK_SIZE) {
+      const chunk = records.slice(offset, offset + BULK_CHUNK_SIZE);
+      if (btn) {
+        const done = Math.min(offset + chunk.length, records.length);
+        btn.textContent = `업로드 중... ${done.toLocaleString("ko-KR")}/${records.length.toLocaleString("ko-KR")}`;
+      }
+      const result = await apiFetch("/api/accidents/investigation-reports/bulk", {
+        auth: true,
+        method: "POST",
+        body: { records: chunk },
+      });
+      updated += result.data?.updated ?? 0;
+      notFound += result.data?.notFound ?? 0;
+      skipped += result.data?.skipped ?? 0;
+    }
+
+    alert(
+      `첨부파일 DB 업데이트 완료\n` +
+        `업데이트: ${updated.toLocaleString("ko-KR")}건\n` +
+        `미매칭(일련번호 없음): ${notFound.toLocaleString("ko-KR")}건\n` +
+        `건너뜀(URL 없음 등): ${(ignoredRows + skipped).toLocaleString("ko-KR")}건`,
+    );
+    await loadAccidentsList();
+  } catch (error) {
+    console.error(error);
+    alert(error.message ?? "첨부파일 DB 업데이트에 실패했습니다.");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+    }
+  }
+}
+
 async function handleBulkUploadFile(file) {
   if (!file) return;
   if (typeof XLSX === "undefined") {
@@ -943,11 +1112,19 @@ function applyAccidentsAdminControls() {
   const isAdmin = getUser()?.role === "ADMIN";
   const deleteBtn = document.getElementById("accidents-delete-selected-btn");
   const bulkUploadBtn = document.getElementById("accidents-bulk-upload-btn");
+  const attachmentUploadBtn = document.getElementById("accidents-attachment-upload-btn");
+  const attachmentSampleBtn = document.getElementById("accidents-attachment-sample-btn");
   if (deleteBtn) {
     deleteBtn.classList.toggle("hidden", !isAdmin);
   }
   if (bulkUploadBtn) {
     bulkUploadBtn.classList.toggle("hidden", !isAdmin);
+  }
+  if (attachmentUploadBtn) {
+    attachmentUploadBtn.classList.toggle("hidden", !isAdmin);
+  }
+  if (attachmentSampleBtn) {
+    attachmentSampleBtn.classList.toggle("hidden", !isAdmin);
   }
 }
 
@@ -978,6 +1155,21 @@ function bindListEvents() {
     const input = event.target;
     const file = input.files?.[0];
     await handleBulkUploadFile(file);
+    input.value = "";
+  });
+
+  document.getElementById("accidents-attachment-upload-btn")?.addEventListener("click", () => {
+    document.getElementById("accidents-attachment-file-input")?.click();
+  });
+
+  document.getElementById("accidents-attachment-sample-btn")?.addEventListener("click", () => {
+    downloadAttachmentSampleForm();
+  });
+
+  document.getElementById("accidents-attachment-file-input")?.addEventListener("change", async (event) => {
+    const input = event.target;
+    const file = input.files?.[0];
+    await handleAttachmentUploadFile(file);
     input.value = "";
   });
 

@@ -67,6 +67,27 @@ export function normalizeInvestigationReportLinksInput(raw: unknown): Investigat
   return normalized;
 }
 
+export function buildInvestigationReportLinksFromUrls(urls: string[]): InvestigationReportLink[] {
+  const createdAt = new Date().toISOString();
+  const links: InvestigationReportLink[] = [];
+
+  for (const [index, raw] of urls.entries()) {
+    const url = String(raw ?? "").trim();
+    if (!url) continue;
+    if (!/^https?:\/\/.+/i.test(url)) {
+      throw new Error(`Attachment ${index + 1} URL must start with http:// or https://`);
+    }
+    links.push({
+      id: `link-${Date.now()}-${index}`,
+      title: `조사보고서 ${links.length + 1}`,
+      url,
+      createdAt,
+    });
+  }
+
+  return links;
+}
+
 export function formatInvestigationReportSavedAtText(date = new Date()): string {
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.0`;

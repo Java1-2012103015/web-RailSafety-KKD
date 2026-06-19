@@ -119,6 +119,29 @@ export class AccidentController {
     }
   };
 
+  bulkUpdateInvestigationReports = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user) {
+        throw new HttpError(401, "Unauthorized.");
+      }
+
+      const result = await this.accidentService.bulkUpdateInvestigationReports(
+        req.body as Record<string, unknown>,
+        {
+          roleId: req.user.roleId,
+          role: req.user.role,
+        },
+      );
+
+      res.status(200).json({
+        message: "Bulk investigation report links updated successfully.",
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   updateInvestigationReports = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user) {

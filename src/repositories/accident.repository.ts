@@ -382,6 +382,45 @@ export class AccidentRepository {
     return result.count;
   }
 
+  async bulkUpdateInvestigationReportLinksByAccidentNumber(
+    records: Array<{ accidentNumber: string; investigationReportLinks: string; savedAtText: string }>,
+  ): Promise<{ updated: number; notFound: number; skipped: number }> {
+    let updated = 0;
+    let notFound = 0;
+    let skipped = 0;
+
+    for (const record of records) {
+      const accidentNumber = record.accidentNumber.trim();
+      if (!accidentNumber) {
+        skipped += 1;
+        continue;
+      }
+
+      const existing = await prisma.accidentDetail.findFirst({
+        where: {
+          OR: [{ accidentNumber }, { accidentNumberBackup: accidentNumber }],
+        },
+        select: { id: true },
+      });
+
+      if (!existing) {
+        notFound += 1;
+        continue;
+      }
+
+      await prisma.accidentDetail.update({
+        where: { id: existing.id },
+        data: {
+          investigationReportLinks: record.investigationReportLinks,
+          savedAtText: record.savedAtText,
+        },
+      });
+      updated += 1;
+    }
+
+    return { updated, notFound, skipped };
+  }
+
   async updateInvestigationReportLinks(
     accidentId: number,
     investigationReportLinks: string,
