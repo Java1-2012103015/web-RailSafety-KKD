@@ -259,10 +259,6 @@ function populateDetail(row, publication) {
   setValue("f-cause-detail", textOrEmpty(flat.accidentCause));
   setValue("f-prevention", textOrEmpty(flat.preventionPlan));
 
-  const reportEl = document.getElementById("f-report-file");
-  if (reportEl) {
-    reportEl.textContent = "첨부파일 없음";
-  }
   setValue("f-report-updated", textOrEmpty(flat.savedAtText));
 
   setValue("s-temp", flat.temperature === null || flat.temperature === undefined ? "" : String(flat.temperature));
@@ -288,6 +284,23 @@ function populateDetail(row, publication) {
   }
   if (typeof applyDetailPublicationTabs === "function") {
     applyDetailPublicationTabs(publication);
+  }
+
+  if (typeof initInvestigationReports === "function") {
+    const isAdmin = typeof getUser === "function" && getUser()?.role === "ADMIN";
+    let reportVisible = true;
+    if (typeof isDetailFieldVisible === "function" && publication?.visibleColumnKeys) {
+      reportVisible = isDetailFieldVisible(
+        "investigation-report-section",
+        new Set(publication.visibleColumnKeys),
+      );
+    }
+    initInvestigationReports({
+      accidentId: row.id,
+      linksRaw: flat.investigationReportLinks,
+      isAdmin,
+      visible: reportVisible,
+    });
   }
 }
 

@@ -110,6 +110,31 @@ function resolveCategory(row) {
   return CATEGORY_BY_TYPE[row.accidentType] ?? "사고";
 }
 
+function parseInvestigationReportLinksForList(raw) {
+  if (typeof parseInvestigationReportLinks === "function") {
+    return parseInvestigationReportLinks(raw);
+  }
+  if (raw == null || raw === "") return [];
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item, index) => {
+        if (!item || typeof item !== "object") return null;
+        const url = String(item.url ?? "").trim();
+        if (!url) return null;
+        return {
+          id: String(item.id ?? "").trim() || `link-${index + 1}`,
+          title: String(item.title ?? "").trim() || `조사보고서 ${index + 1}`,
+          url,
+        };
+      })
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 function enrichRow(row) {
   const detail = row.detail ?? {};
   const seriousInjuries = detail.seriousInjuries ?? row.seriousInjuries ?? row.injuries ?? 0;
@@ -128,7 +153,8 @@ function enrichRow(row) {
         ? damageFromDetail
         : resolveDamageAmount(row),
     closingSetting: detail.closingSetting?.trim() || "-",
-    hasAttachment: false,
+    hasAttachment: parseInvestigationReportLinksForList(detail.investigationReportLinks).length > 0,
+    investigationReportLinks: parseInvestigationReportLinksForList(detail.investigationReportLinks),
     investigationStatus: detail.investigationStatus?.trim() || "-",
     registeredAt: formatDateOnly(row.createdAt),
     supplementRequest: "정상",
@@ -652,6 +678,35 @@ function exportAccidentInfoToXlsx() {
 
 const ACCIDENT_LIST_COL_COUNT = 11;
 
+function shouldShowAccidentReportDownloadColumn() {
+  return typeof getUser === "function" && getUser()?.role !== "ADMIN";
+}
+
+function renderInvestigationReportListCell(row, enriched) {
+  if (!shouldShowAccidentReportDownloadColumn()) return "";
+  const links = enriched.investigationReportLinks ?? [];
+  if (!links.length) return "";
+  if (typeof buildInvestigationReportDownloadButton !== "function") return "";
+
+  return `<div class="flex flex-wrap items-center justify-center gap-1.5">${links
+    .map((link, index) => {
+      const labeledLink = {
+        ...link,
+        title: link.title || `조사보고서 ${index + 1}`,
+      };
+      return buildInvestigationReportDownloadButton(row.id, labeledLink, { compact: true });
+    })
+    .join("")}</div>`;
+}
+
+function applyAccidentReportColumnVisibility() {
+  const showColumn = shouldShowAccidentReportDownloadColumn();
+  document.getElementById("accidents-col-report-header")?.classList.toggle("hidden", !showColumn);
+  document.querySelectorAll(".accidents-col-report").forEach((cell) => {
+    cell.classList.toggle("hidden", !showColumn);
+  });
+}
+
 function renderAccidents(items) {
   const tbody = document.getElementById("accidents-table-body");
   if (!items.length) {
@@ -663,9 +718,7 @@ function renderAccidents(items) {
   tbody.innerHTML = items
     .map((row) => {
       const enriched = enrichRow(row);
-      const attachmentCell = enriched.hasAttachment
-        ? '<span class="inline-block text-base leading-none" title="첨부파일">💾</span>'
-        : "";
+      const reportCell = renderInvestigationReportListCell(row, enriched);
       return `
     <tr class="hover:bg-blue-50/40">
       <td class="border-r border-gray-200 px-1 py-1.5">
@@ -674,12 +727,12 @@ function renderAccidents(items) {
       <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5 text-left">${enriched.serialNo}</td>
       <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5">${formatDateOnly(row.accidentAt)}</td>
       <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5">${enriched.operatingAgency}</td>
-      <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5 text-left">${row.lineName ?? "-"}</td>
+      <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5">${row.lineName ?? "-"}</td>
       <td class="border-r border-gray-200 px-2 py-1.5">${enriched.accidentCategory}</td>
       <td class="accidents-col-casualty border-r border-gray-200 px-2 py-1.5">${row.deaths ?? 0}</td>
       <td class="accidents-col-casualty border-r border-gray-200 px-2 py-1.5">${enriched.seriousInjuries}</td>
       <td class="border-r border-gray-200 px-2 py-1.5 text-right">${enriched.damageAmount}</td>
-      <td class="border-r border-gray-200 px-2 py-1.5">${attachmentCell}</td>
+      <td class="accidents-col-report border-r border-gray-200 px-2 py-1.5">${reportCell}</td>
       <td class="px-2 py-1.5">
         <button type="button" class="rounded border border-gray-400 bg-white px-2 py-0.5 text-[11px] hover:bg-gray-50 accident-detail-btn" data-id="${row.id}">보기</button>
       </td>
@@ -687,6 +740,11 @@ function renderAccidents(items) {
   `;
     })
     .join("");
+
+  applyAccidentReportColumnVisibility();
+  if (typeof bindInvestigationReportDownloadButtons === "function") {
+    bindInvestigationReportDownloadButtons(tbody);
+  }
 }
 
 function getSelectedAccidentIds() {
@@ -823,8 +881,18 @@ function renderCauseSummary(items) {
   `;
 }
 
+function showAccidentsListError(message) {
+  const tbody = document.getElementById("accidents-table-body");
+  if (!tbody) return;
+  const detail = message ? `: ${message}` : "";
+  tbody.innerHTML =
+    `<tr><td colspan="${ACCIDENT_LIST_COL_COUNT}" class="px-4 py-6 text-center text-sm text-red-600">데이터를 불러오지 못했습니다${detail}</td></tr>`;
+}
+
 async function loadAccidentsList() {
   const tbody = document.getElementById("accidents-table-body");
+  if (!tbody) return;
+
   tbody.innerHTML =
     `<tr><td colspan="${ACCIDENT_LIST_COL_COUNT}" class="px-4 py-8 text-center text-sm text-gray-500">불러오는 중...</td></tr>`;
 
@@ -836,7 +904,14 @@ async function loadAccidentsList() {
     params.set("pageSize", "100");
   }
 
-  const result = await apiFetch(`/api/accidents?${params.toString()}`, { auth: true });
+  let result;
+  try {
+    result = await apiFetch(`/api/accidents?${params.toString()}`, { auth: true });
+  } catch (error) {
+    console.error(error);
+    showAccidentsListError(error.message);
+    return;
+  }
   let items = result.data?.items ?? [];
   if (clientFilters) {
     items = items.filter((row) => matchesClientFilters(enrichRow(row)));
@@ -992,17 +1067,18 @@ async function loadAccidentsPage() {
 
 document.addEventListener("DOMContentLoaded", async () => {
   if (!requireAuth()) return;
+  applyAccidentReportColumnVisibility();
   bindPortalHeader();
   await loadPortalMenus();
   try {
     await loadPortalBranding();
+  } catch (error) {
+    console.error("브랜딩 정보를 불러오지 못했습니다.", error);
+  }
+  try {
     await loadAccidentsPage();
   } catch (error) {
     console.error(error);
-    const tbody = document.getElementById("accidents-table-body");
-    if (tbody) {
-      tbody.innerHTML =
-        `<tr><td colspan="${ACCIDENT_LIST_COL_COUNT}" class="px-4 py-6 text-center text-sm text-red-600">데이터를 불러오지 못했습니다.</td></tr>`;
-    }
+    showAccidentsListError(error.message);
   }
 });

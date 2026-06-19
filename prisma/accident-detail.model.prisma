@@ -175,6 +175,7 @@ model AccidentDetail {
   preventionPlan String? @db.Text
   accidentNumberBackup String?
   investigationStatus String?
+  investigationReportLinks String? @db.Text
   registeredBy String?
   savedAtText String?
   createdAt DateTime @default(now())

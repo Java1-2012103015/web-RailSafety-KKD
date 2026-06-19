@@ -25,6 +25,8 @@ const accidentController = new AccidentController(accidentService);
 
 router.get("/filter-options", authenticate, accidentController.getFilterOptions);
 router.get("/", authenticate, accidentController.getAccidents);
+router.patch("/:id/investigation-reports", authenticate, accidentController.updateInvestigationReports);
+router.get("/:id/investigation-reports/download", authenticate, accidentController.downloadInvestigationReport);
 router.get("/:id", authenticate, accidentController.getAccidentById);
 router.post("/bulk", authenticate, accidentController.bulkUpsertAccidents);
 router.delete("/", authenticate, accidentController.deleteAccidents);

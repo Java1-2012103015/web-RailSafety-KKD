@@ -15,6 +15,13 @@ import { buildPublicationMeta } from "../utils/accident-detail-publication";
 import { ALL_ACCIDENT_DETAIL_COLUMN_KEYS } from "../constants/accident-detail-column-groups";
 import { ALL_ACCIDENT_DETAIL_TAB_IDS } from "../constants/accident-detail-ui-tabs";
 import { parseQueryEndDate, parseQueryStartDate } from "../utils/query-date";
+import {
+  formatInvestigationReportSavedAtText,
+  inferInvestigationReportFilename,
+  normalizeInvestigationReportLinksInput,
+  parseInvestigationReportLinks,
+  serializeInvestigationReportLinks,
+} from "../utils/investigation-report-links";
 
 interface GetAccidentsInput {
   startDate?: string;
@@ -79,6 +86,7 @@ const DETAIL_TEXT_KEYS = new Set([
   "accidentOverview",
   "actionContent",
   "preventionPlan",
+  "investigationReportLinks",
 ]);
 
 const VARCHAR_LIMIT = 191;
@@ -491,5 +499,91 @@ export class AccidentService {
 
     const deleted = await this.accidentRepository.deleteByIds(Array.from(new Set(ids)));
     return { deleted };
+  }
+
+  async updateInvestigationReports(
+    id: number,
+    linksInput: unknown,
+    auth: { roleId: number; role: string },
+  ) {
+    if (auth.role !== ROLES.ADMIN) {
+      throw new HttpError(403, "Only admin can update investigation reports.");
+    }
+
+    if (!Number.isInteger(id) || id < 1) {
+      throw new HttpError(400, "Invalid accident id.");
+    }
+
+    const accident = await this.accidentRepository.findById(id);
+    if (!accident) {
+      throw new HttpError(404, "Accident not found.");
+    }
+
+    let links;
+    try {
+      links = normalizeInvestigationReportLinksInput(linksInput);
+    } catch (error) {
+      throw new HttpError(400, error instanceof Error ? error.message : "Invalid links.");
+    }
+
+    const savedAtText = formatInvestigationReportSavedAtText();
+    try {
+      await this.accidentRepository.updateInvestigationReportLinks(
+        id,
+        serializeInvestigationReportLinks(links),
+        savedAtText,
+      );
+    } catch (error) {
+      if (error instanceof Error && error.message === "Accident detail not found.") {
+        throw new HttpError(404, error.message);
+      }
+      throw error;
+    }
+
+    return {
+      investigationReportLinks: links,
+      savedAtText,
+    };
+  }
+
+  async downloadInvestigationReportFile(
+    id: number,
+    linkId: string,
+    auth: { roleId: number; role: string },
+  ) {
+    const trimmedLinkId = linkId.trim();
+    if (!trimmedLinkId) {
+      throw new HttpError(400, "linkId is required.");
+    }
+
+    const { accident } = await this.getAccidentById(id, auth);
+    const detail = (accident as RailwayAccident & { detail?: { investigationReportLinks?: string | null } | null })
+      .detail;
+    const links = parseInvestigationReportLinks(detail?.investigationReportLinks);
+    const link = links.find((item) => item.id === trimmedLinkId);
+    if (!link) {
+      throw new HttpError(404, "Report link not found.");
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(link.url, { redirect: "follow" });
+    } catch {
+      throw new HttpError(502, "Failed to fetch report file.");
+    }
+
+    if (!response.ok) {
+      throw new HttpError(502, "Failed to fetch report file.");
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const filename = inferInvestigationReportFilename(
+      link.url,
+      link.title,
+      response.headers.get("content-disposition"),
+    );
+    const contentType = response.headers.get("content-type") || "application/octet-stream";
+
+    return { buffer, filename, contentType };
   }
 }

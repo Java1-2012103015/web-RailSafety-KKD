@@ -41,7 +41,8 @@ const DETAIL_FIELD_COLUMNS = {
   "f-action": ["actionContent"],
   "f-cause-detail": ["accidentCause"],
   "f-prevention": ["preventionPlan"],
-  "f-report-updated": ["savedAtText"],
+  "investigation-report-section": ["investigationReportLinks"],
+  "f-report-updated": ["savedAtText", "investigationReportLinks"],
   "s-temp": ["temperature"],
   "s-rail-type": ["railwayDivision"],
   "f-supplement-req": ["supplementRequestStatus"],
@@ -91,7 +92,11 @@ function applyDetailPublicationTabs(publication) {
 function isDetailFieldVisible(fieldId, visibleSet) {
   const keys = DETAIL_FIELD_COLUMNS[fieldId];
   if (!keys?.length) return true;
-  return keys.some((key) => visibleSet.has(key));
+  const visible =
+    visibleSet instanceof Set
+      ? visibleSet
+      : new Set(Array.isArray(visibleSet) ? visibleSet : []);
+  return keys.some((key) => visible.has(key));
 }
 
 function setColInputs(colKey, value) {
@@ -120,9 +125,12 @@ function applyDetailPublicationMask(publication) {
     }
   });
 
-  const reportEl = document.getElementById("f-report-file");
-  if (reportEl && !isDetailFieldVisible("f-report-updated", visibleSet)) {
-    reportEl.textContent = "";
+  const reportSection = document.getElementById("investigation-report-section");
+  if (reportSection) {
+    const reportRow = reportSection.closest("tr");
+    if (reportRow) {
+      reportRow.classList.toggle("hidden", !isDetailFieldVisible("investigation-report-section", visibleSet));
+    }
   }
 }
 

@@ -170,6 +170,7 @@ const ACCIDENT_DB_COLUMNS = [
   { key: "actionContent", header: "조치내용" },
   { key: "accidentCause", header: "사고원인" },
   { key: "preventionPlan", header: "예방대책" },
+  { key: "investigationReportLinks", header: "조사보고서링크" },
   { key: "accidentNumberBackup", header: "사고번호백업" },
   { key: "investigationStatus", header: "조사상태" },
   { key: "registeredBy", header: "등록자" },

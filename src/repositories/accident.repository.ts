@@ -381,4 +381,27 @@ export class AccidentRepository {
     });
     return result.count;
   }
+
+  async updateInvestigationReportLinks(
+    accidentId: number,
+    investigationReportLinks: string,
+    savedAtText: string,
+  ): Promise<void> {
+    const detail = await prisma.accidentDetail.findFirst({
+      where: { accidentId },
+      select: { id: true },
+    });
+
+    if (!detail) {
+      throw new Error("Accident detail not found.");
+    }
+
+    await prisma.accidentDetail.update({
+      where: { id: detail.id },
+      data: {
+        investigationReportLinks,
+        savedAtText,
+      },
+    });
+  }
 }

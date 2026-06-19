@@ -119,6 +119,55 @@ export class AccidentController {
     }
   };
 
+  updateInvestigationReports = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user) {
+        throw new HttpError(401, "Unauthorized.");
+      }
+
+      const id = Number(req.params.id);
+      const result = await this.accidentService.updateInvestigationReports(
+        id,
+        (req.body as { links?: unknown })?.links,
+        {
+          roleId: req.user.roleId,
+          role: req.user.role,
+        },
+      );
+
+      res.status(200).json({
+        message: "Investigation report links updated successfully.",
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  downloadInvestigationReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user) {
+        throw new HttpError(401, "Unauthorized.");
+      }
+
+      const id = Number(req.params.id);
+      const linkId = String(req.query.linkId ?? "");
+      const file = await this.accidentService.downloadInvestigationReportFile(id, linkId, {
+        roleId: req.user.roleId,
+        role: req.user.role,
+      });
+
+      res.setHeader("Content-Type", file.contentType);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename*=UTF-8''${encodeURIComponent(file.filename)}`,
+      );
+      res.status(200).send(file.buffer);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   deleteAccidents = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user) {

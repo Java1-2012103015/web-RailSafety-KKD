@@ -42,6 +42,7 @@ export const ACCIDENT_DETAIL_COLUMN_GROUPS = [
       "actionContent",
       "accidentCause",
       "preventionPlan",
+      "investigationReportLinks",
     ],
   },
   {
