@@ -22,6 +22,37 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="/css/branding-logo.css" />
+    <style>
+      .dashboard-tab-nav {
+        display: flex;
+        width: 100%;
+      }
+      .dashboard-tab-btn {
+        flex: 1 1 0;
+        min-width: 0;
+        border: 1px solid transparent;
+        border-bottom: none;
+        padding: 0.625rem 0.75rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #4b5563;
+        background: #f9fafb;
+        text-align: center;
+        transition: background-color 0.15s, color 0.15s;
+      }
+      .dashboard-tab-btn:hover {
+        color: #1f2747;
+        background: #fff;
+      }
+      .dashboard-tab-btn-active {
+        background: #fff;
+        color: #1f2747;
+        font-weight: 600;
+        border-color: #d1d5db;
+        border-top: 2px solid #253056;
+        margin-bottom: -1px;
+      }
+    </style>
   </head>
   <body
     id="top"
@@ -56,12 +87,12 @@
             <div class="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <h2 class="text-xl font-bold text-gray-900">사고·장애정보 대시보드</h2>
-                <p class="mt-1 text-sm text-gray-600">최근 5년 전체기관 사고·장애 발생현황 및 월별 누적 통계</p>
+                <p class="mt-1 text-sm text-gray-600">당해·최근 5년 사고·장애 및 사상자 발생현황</p>
               </div>
               <p class="text-xs text-gray-500">갱신: <span id="portal-stat-updated">-</span></p>
             </div>
 
-            <div id="portal-dashboard-wrap" class="relative min-h-[24rem]">
+            <div id="portal-dashboard-wrap" class="relative">
               <div
                 id="portal-dashboard-loading"
                 class="absolute inset-0 z-10 flex items-center justify-center rounded-sm bg-white/85"
@@ -81,6 +112,137 @@
                 class="space-y-6 opacity-0 pointer-events-none"
                 aria-busy="true"
               >
+                <div id="portal-dashboard-tabs" class="hidden">
+                  <div class="border border-gray-300 bg-white">
+                    <nav class="dashboard-tab-nav" role="tablist" aria-label="대시보드 탭">
+                      <button
+                        type="button"
+                        id="dashboard-tab-btn-current-year"
+                        class="dashboard-tab-btn dashboard-tab-btn-active"
+                        data-dashboard-tab="current-year"
+                        role="tab"
+                        aria-selected="true"
+                      >
+                        사고·장애 발생현황
+                      </button>
+                      <button
+                        type="button"
+                        class="dashboard-tab-btn"
+                        data-dashboard-tab="recent5-events"
+                        role="tab"
+                        aria-selected="false"
+                      >
+                        최근 5년 사고·장애 발생현황
+                      </button>
+                      <button
+                        type="button"
+                        class="dashboard-tab-btn"
+                        data-dashboard-tab="recent5-casualties"
+                        role="tab"
+                        aria-selected="false"
+                      >
+                        최근 5년 사상자 발생현황
+                      </button>
+                    </nav>
+                  </div>
+
+                  <div id="dashboard-tab-panel-current-year" class="dashboard-tab-panel mt-4 space-y-6" role="tabpanel">
+                    <div id="portal-yearly-status-section" class="grid gap-4 lg:grid-cols-2">
+                      <div class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+                        <h3 id="chart-yearly-accidents-title" class="mb-3 text-sm font-bold text-gray-900">
+                          2026년 철도사고 발생현황
+                        </h3>
+                        <div class="h-80">
+                          <canvas id="chart-yearly-accidents-status"></canvas>
+                        </div>
+                      </div>
+                      <div class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+                        <h3 id="chart-yearly-disruptions-title" class="mb-3 text-sm font-bold text-gray-900">
+                          2026년 운행장애 발생현황
+                        </h3>
+                        <div class="h-80">
+                          <canvas id="chart-yearly-disruptions-status"></canvas>
+                        </div>
+                      </div>
+                    </div>
+
+                    <section id="year-status-root">
+                      <div class="grid gap-4 lg:grid-cols-2">
+                        <div
+                          id="panel-year-accidents"
+                          class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm"
+                        ></div>
+                        <div
+                          id="panel-year-disruptions"
+                          class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm"
+                        ></div>
+                      </div>
+                    </section>
+                  </div>
+
+                  <div id="dashboard-tab-panel-recent5-events" class="dashboard-tab-panel mt-4 hidden space-y-4" role="tabpanel" aria-hidden="true">
+                    <div class="flex flex-wrap items-end gap-4 rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+                      <div class="min-w-[140px]">
+                        <label for="filter-dashboard-rail-events" class="mb-1.5 block text-xs font-medium text-gray-600">철도구분</label>
+                        <select id="filter-dashboard-rail-events" class="w-full rounded border border-gray-300 px-2 py-1.5 text-sm">
+                          <option value="전체">전체</option>
+                        </select>
+                      </div>
+                      <div class="min-w-[160px]">
+                        <label for="filter-dashboard-agency-events" class="mb-1.5 block text-xs font-medium text-gray-600">등록기관</label>
+                        <select id="filter-dashboard-agency-events" class="w-full rounded border border-gray-300 px-2 py-1.5 text-sm">
+                          <option value="전체">전체</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="grid gap-4 lg:grid-cols-2">
+                      <div class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+                        <h3 class="mb-3 text-sm font-bold text-gray-900">최근 5년 철도사고 발생현황</h3>
+                        <div class="h-80">
+                          <canvas id="chart-tab-recent5-accidents"></canvas>
+                        </div>
+                      </div>
+                      <div class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+                        <h3 class="mb-3 text-sm font-bold text-gray-900">최근 5년 운행장애 발생현황</h3>
+                        <div class="h-80">
+                          <canvas id="chart-tab-recent5-disruptions"></canvas>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div id="dashboard-tab-panel-recent5-casualties" class="dashboard-tab-panel mt-4 hidden space-y-4" role="tabpanel" aria-hidden="true">
+                    <div class="flex flex-wrap items-end gap-4 rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+                      <div class="min-w-[140px]">
+                        <label for="filter-dashboard-rail-casualties" class="mb-1.5 block text-xs font-medium text-gray-600">철도구분</label>
+                        <select id="filter-dashboard-rail-casualties" class="w-full rounded border border-gray-300 px-2 py-1.5 text-sm">
+                          <option value="전체">전체</option>
+                        </select>
+                      </div>
+                      <div class="min-w-[160px]">
+                        <label for="filter-dashboard-agency-casualties" class="mb-1.5 block text-xs font-medium text-gray-600">등록기관</label>
+                        <select id="filter-dashboard-agency-casualties" class="w-full rounded border border-gray-300 px-2 py-1.5 text-sm">
+                          <option value="전체">전체</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="grid gap-4 lg:grid-cols-2">
+                      <div class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+                        <h3 class="mb-3 text-sm font-bold text-gray-900">최근 5년 사망 발생현황</h3>
+                        <div class="h-80">
+                          <canvas id="chart-tab-recent5-deaths"></canvas>
+                        </div>
+                      </div>
+                      <div class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+                        <h3 class="mb-3 text-sm font-bold text-gray-900">최근 5년 부상(중상) 발생현황</h3>
+                        <div class="h-80">
+                          <canvas id="chart-tab-recent5-injuries"></canvas>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <section id="portal-combined-trends-section" class="hidden grid gap-4 lg:grid-cols-2">
                   <div class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
                     <h3 class="mb-3 text-sm font-bold text-gray-900">최근 5년 운행장애 발생현황</h3>
@@ -95,15 +257,6 @@
                     </div>
                   </div>
                 </section>
-
-                <div id="portal-yearly-status-section" class="hidden rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
-                  <h3 id="chart-yearly-status-title" class="mb-3 text-sm font-bold text-gray-900">
-                    2026년 철도사고, 장애 발생현황
-                  </h3>
-                  <div class="h-80">
-                    <canvas id="chart-yearly-combined-status"></canvas>
-                  </div>
-                </div>
 
                 <section id="month-compare-root" class="hidden space-y-4">
                   <div class="grid gap-4 lg:grid-cols-2">
@@ -128,16 +281,10 @@
                   </div>
                 </section>
 
-                <section id="year-status-root" class="hidden">
+                <section id="year-status-root-legacy" class="hidden">
                   <div class="grid gap-4 lg:grid-cols-2">
-                    <div
-                      id="panel-year-accidents"
-                      class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm"
-                    ></div>
-                    <div
-                      id="panel-year-disruptions"
-                      class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm"
-                    ></div>
+                    <div id="panel-year-accidents-legacy" class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm"></div>
+                    <div id="panel-year-disruptions-legacy" class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm"></div>
                   </div>
                 </section>
               </div>
@@ -164,6 +311,7 @@
     <script src="/js/branding.js"></script>
     <script src="/js/public-board-layout.js"></script>
     <script src="/js/dashboard-month-panels.js"></script>
+    <script src="/js/portal-dashboard-tabs.js"></script>
     <script src="/js/portal-dashboard.js"></script>
     <script>
       document.addEventListener("DOMContentLoaded", async () => {

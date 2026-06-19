@@ -44,13 +44,13 @@ function renderYearStatusPanels(yearStatusSummary, options = {}) {
 
   renderYearStatusPanel(
     document.getElementById("panel-year-disruptions"),
-    `${year}년(당월) 장애 현황${scopeSuffix}`,
+    `${year}년 장애 현황${scopeSuffix}`,
     yearStatusSummary.disruptions,
     "text-red-700",
   );
   renderYearStatusPanel(
     document.getElementById("panel-year-accidents"),
-    `${year}년(당월) 사고 현황${scopeSuffix}`,
+    `${year}년 사고 현황${scopeSuffix}`,
     yearStatusSummary.accidents,
     "text-navy-900",
   );

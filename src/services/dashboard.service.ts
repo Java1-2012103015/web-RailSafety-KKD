@@ -2,8 +2,10 @@ import { AccidentRepository } from "../repositories/accident.repository";
 import { PermissionRepository } from "../repositories/permission.repository";
 import { ROLES } from "../constants/roles";
 import {
+  buildDashboardDetailRows,
   computeYearStatusSummary,
   computeTrendStats,
+  extractDashboardFilterOptions,
   filterDashboardTargetRows,
   filterRowsByQueryPermission,
   getLastDisplayYear,
@@ -33,12 +35,17 @@ export class DashboardService {
     const rows = filterDashboardTargetRows(rawRows);
     const currentYear = new Date().getFullYear();
     const allStats = computeTrendStats(rows, currentYear);
+    const detailRows = buildDashboardDetailRows(rows);
 
     return {
       updatedAt: new Date().toISOString(),
       currentYear,
+      recentYears: getRecent5Years(currentYear),
       guest: true,
       yearStatusSummary: computeYearStatusSummary(rows),
+      filterOptions: extractDashboardFilterOptions(detailRows),
+      detailRows,
+      allDetailRows: detailRows,
       all: {
         recent5Accidents: allStats.recent5Accidents,
         recent5Disruptions: allStats.recent5Disruptions,
@@ -67,12 +74,18 @@ export class DashboardService {
     }
 
     const scopedStats = computeTrendStats(scopedRows, currentYear);
+    const detailRows = buildDashboardDetailRows(scopedRows);
+    const allDetailRows = buildDashboardDetailRows(rows);
 
     return {
       updatedAt: new Date().toISOString(),
       currentYear,
+      recentYears: getRecent5Years(currentYear),
       yearStatusSummary: computeYearStatusSummary(scopedRows),
       queryScopeSummary,
+      filterOptions: extractDashboardFilterOptions(detailRows),
+      detailRows,
+      allDetailRows,
       all: {
         recent5Accidents: allStats.recent5Accidents,
         recent5Disruptions: allStats.recent5Disruptions,

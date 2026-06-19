@@ -22,6 +22,14 @@ function destroyPortalChart(key) {
   }
 }
 
+function resizePortalCharts() {
+  Object.values(portalCharts).forEach((chart) => {
+    if (chart?.resize) {
+      chart.resize();
+    }
+  });
+}
+
 function navigateToScopedAccidentSearch({ year, month = null, dashboardChart }) {
   const params = new URLSearchParams();
   params.set("year", String(year));
@@ -107,6 +115,17 @@ function buildMonthlyTooltipLines(rows, tooltipItems) {
     "",
     "클릭하면 해당 월 사고 목록으로 이동합니다.",
   ];
+}
+
+function getMonthlyFieldCount(rows, index, field) {
+  return Number(rows[index]?.[field]) || 0;
+}
+
+function buildYearlyStatusTooltipLabel(context, { allRows, scopedRows, field, showScoped }) {
+  if (context.parsed.y == null) return null;
+  const rows = !showScoped || context.datasetIndex === 0 ? allRows : scopedRows;
+  const monthlyCount = getMonthlyFieldCount(rows, context.dataIndex, field);
+  return `${context.dataset.label}: ${monthlyCount.toLocaleString("ko-KR")}건`;
 }
 
 function buildYearlyStatusTooltipLines(rows, tooltipItems, { isAccidentDataset, loginRequired = false } = {}) {
@@ -300,14 +319,21 @@ function shouldShowScopedChartSeries(isGuest) {
 }
 
 function applyCombinedTrendLayout(useCombined) {
+  const hasTabs = Boolean(document.getElementById("portal-dashboard-tabs"));
+
   const combinedSection = document.getElementById("portal-combined-trends-section");
   if (combinedSection) {
-    combinedSection.classList.toggle("hidden", !useCombined);
+    combinedSection.classList.toggle("hidden", !useCombined || hasTabs);
   }
 
   const yearlyStatusSection = document.getElementById("portal-yearly-status-section");
-  if (yearlyStatusSection) {
+  if (yearlyStatusSection && !hasTabs) {
     yearlyStatusSection.classList.toggle("hidden", !useCombined);
+  }
+
+  const tabsRoot = document.getElementById("portal-dashboard-tabs");
+  if (tabsRoot) {
+    tabsRoot.classList.toggle("hidden", !useCombined);
   }
 
   const legacyMonthlySection = document.getElementById("portal-monthly-legacy-section");
@@ -327,7 +353,8 @@ function applyCombinedTrendLayout(useCombined) {
   if (!useCombined) {
     destroyPortalChart("combinedAccidents");
     destroyPortalChart("combinedDisruptions");
-    destroyPortalChart("yearlyCombinedStatus");
+    destroyPortalChart("yearlyAccidentStatus");
+    destroyPortalChart("yearlyDisruptionStatus");
   }
 }
 
@@ -428,87 +455,76 @@ function renderCombinedTrendChart({
   });
 }
 
-function renderYearlyCombinedStatusChart(allRows, scopedRows, currentYear, { showScoped = true } = {}) {
-  const canvas = document.getElementById("chart-yearly-combined-status");
+function setYearlyStatusChartTitles(currentYear) {
+  const accidentsTitle = document.getElementById("chart-yearly-accidents-title");
+  if (accidentsTitle) {
+    accidentsTitle.textContent = `${currentYear}년 철도사고 발생현황`;
+  }
+  const disruptionsTitle = document.getElementById("chart-yearly-disruptions-title");
+  if (disruptionsTitle) {
+    disruptionsTitle.textContent = `${currentYear}년 운행장애 발생현황`;
+  }
+}
+
+function renderYearlyStatusMixedChart({
+  canvasId,
+  chartKey,
+  allRows,
+  scopedRows,
+  currentYear,
+  field,
+  lineLabel,
+  barLabel,
+  yLabel,
+  yColor,
+  axisDefaultMax,
+  dashboardChart,
+  showScoped = true,
+}) {
+  const canvas = document.getElementById(canvasId);
   if (!canvas) return;
 
-  destroyPortalChart("yearlyCombinedStatus");
+  destroyPortalChart(chartKey);
   canvas.style.cursor = "pointer";
 
   const labels = allRows.map((row) => `${row.month}월`);
-  const allAccidentCumulative = buildCumulativeMonthly(allRows, "accidents", currentYear);
-  const allDisruptionCumulative = buildCumulativeMonthly(allRows, "disruptions", currentYear);
-  const scopedAccidentCumulative = buildCumulativeMonthly(scopedRows, "accidents", currentYear);
-  const scopedDisruptionCumulative = buildCumulativeMonthly(scopedRows, "disruptions", currentYear);
-
-  const accidentMax = computeAxisMax(
-    showScoped ? [...allAccidentCumulative, ...scopedAccidentCumulative] : allAccidentCumulative,
-    10,
-  );
-  const disruptionMax = computeAxisMax(
-    showScoped ? [...allDisruptionCumulative, ...scopedDisruptionCumulative] : allDisruptionCumulative,
-    20,
+  const allCumulative = buildCumulativeMonthly(allRows, field, currentYear);
+  const scopedCumulative = buildCumulativeMonthly(scopedRows, field, currentYear);
+  const yMax = computeAxisMax(
+    showScoped ? [...allCumulative, ...scopedCumulative] : allCumulative,
+    axisDefaultMax,
   );
 
   const datasets = [
     {
       type: "line",
-      label: "전체기관 철도사고",
-      data: allAccidentCumulative,
-      borderColor: CHART_COLOR_ACCIDENT,
-      backgroundColor: `${CHART_COLOR_ACCIDENT}33`,
+      label: lineLabel,
+      data: allCumulative,
+      borderColor: yColor,
+      backgroundColor: `${yColor}33`,
       tension: 0.25,
       fill: false,
       spanGaps: false,
       pointRadius: 4,
       pointHoverRadius: 6,
-      yAxisID: "yAccident",
-      order: 0,
-    },
-    {
-      type: "line",
-      label: "전체기관 운행장애",
-      data: allDisruptionCumulative,
-      borderColor: CHART_COLOR_DISRUPTION,
-      backgroundColor: `${CHART_COLOR_DISRUPTION}33`,
-      tension: 0.25,
-      fill: false,
-      spanGaps: false,
-      pointRadius: 4,
-      pointHoverRadius: 6,
-      yAxisID: "yDisruption",
       order: 0,
     },
   ];
 
   if (showScoped) {
-    datasets.push(
-      {
-        type: "bar",
-        label: "조회권한 기관 철도사고",
-        data: scopedAccidentCumulative,
-        backgroundColor: `${CHART_COLOR_ACCIDENT}99`,
-        borderColor: CHART_COLOR_ACCIDENT,
-        borderWidth: 1,
-        borderRadius: 4,
-        yAxisID: "yAccident",
-        order: 1,
-      },
-      {
-        type: "bar",
-        label: "조회권한 기관 운행장애",
-        data: scopedDisruptionCumulative,
-        backgroundColor: `${CHART_COLOR_DISRUPTION}99`,
-        borderColor: CHART_COLOR_DISRUPTION,
-        borderWidth: 1,
-        borderRadius: 4,
-        yAxisID: "yDisruption",
-        order: 1,
-      },
-    );
+    datasets.push({
+      type: "bar",
+      label: barLabel,
+      data: scopedCumulative,
+      backgroundColor: `${yColor}99`,
+      borderColor: yColor,
+      borderWidth: 1,
+      borderRadius: 4,
+      order: 1,
+    });
   }
 
-  portalCharts.yearlyCombinedStatus = new Chart(canvas, {
+  portalCharts[chartKey] = new Chart(canvas, {
     type: "bar",
     data: { labels, datasets },
     options: {
@@ -518,13 +534,15 @@ function renderYearlyCombinedStatusChart(allRows, scopedRows, currentYear, { sho
         legend: { position: "bottom" },
         tooltip: {
           callbacks: {
+            label: (context) =>
+              buildYearlyStatusTooltipLabel(context, { allRows, scopedRows, field, showScoped }),
             afterBody: (tooltipItems) => {
               const item = tooltipItems[0];
               if (!item) return [];
               const datasetIndex = item.datasetIndex;
-              const isAccidentDataset = datasetIndex === 0 || (showScoped && datasetIndex === 2);
+              const isAccidentDataset = field === "accidents";
 
-              if (!showScoped || datasetIndex === 0 || datasetIndex === 1) {
+              if (!showScoped || datasetIndex === 0) {
                 if (!showScoped) {
                   return buildYearlyStatusTooltipLines(allRows, tooltipItems, {
                     isAccidentDataset,
@@ -540,42 +558,62 @@ function renderYearlyCombinedStatusChart(allRows, scopedRows, currentYear, { sho
         },
       },
       scales: {
-        x: {
-          grid: { display: false },
-        },
-        yAccident: {
-          type: "linear",
-          position: "right",
+        x: { grid: { display: false } },
+        y: {
           beginAtZero: true,
-          max: accidentMax,
-          ticks: { stepSize: computeAxisStepSize(accidentMax) },
-          grid: { drawOnChartArea: false },
-          title: { display: true, text: "철도사고 (누적)", color: CHART_COLOR_ACCIDENT, font: { size: 11 } },
-        },
-        yDisruption: {
-          type: "linear",
-          position: "left",
-          beginAtZero: true,
-          max: disruptionMax,
-          ticks: { stepSize: computeAxisStepSize(disruptionMax) },
-          title: { display: true, text: "운행장애 (누적)", color: CHART_COLOR_DISRUPTION, font: { size: 11 } },
+          max: yMax,
+          ticks: { stepSize: computeAxisStepSize(yMax) },
+          title: { display: true, text: yLabel, color: yColor, font: { size: 11 } },
         },
       },
       onClick: (_event, elements) => {
         if (!elements.length || !currentYear) return;
         const { index, datasetIndex } = elements[0];
 
-        if (!showScoped || datasetIndex === 0 || datasetIndex === 1) {
+        if (!showScoped || datasetIndex === 0) {
           showChartAccessDenied();
           return;
         }
 
         const month = scopedRows[index]?.month;
-        if (!month) return;
-        const dashboardChart = datasetIndex === 2 ? "scoped-accidents" : "scoped-disruptions";
+        if (!month || getMonthlyDataCutoffMonth(currentYear) < month) return;
         navigateToScopedAccidentSearch({ year: currentYear, month, dashboardChart });
       },
     },
+  });
+}
+
+function renderYearlyCombinedStatusChart(allRows, scopedRows, currentYear, { showScoped = true } = {}) {
+  renderYearlyStatusMixedChart({
+    canvasId: "chart-yearly-accidents-status",
+    chartKey: "yearlyAccidentStatus",
+    allRows,
+    scopedRows,
+    currentYear,
+    field: "accidents",
+    lineLabel: "전체기관 철도사고",
+    barLabel: "조회권한 기관 철도사고",
+    yLabel: "철도사고 (누적)",
+    yColor: CHART_COLOR_ACCIDENT,
+    axisDefaultMax: 10,
+    dashboardChart: "scoped-accidents",
+    showScoped,
+  });
+
+  renderYearlyStatusMixedChart({
+    canvasId: "chart-yearly-disruptions-status",
+    chartKey: "yearlyDisruptionStatus",
+    allRows,
+    scopedRows,
+    currentYear,
+    field: "disruptions",
+    lineLabel: "전체기관 운행장애",
+    barLabel: "조회권한 기관 운행장애",
+    yLabel: "운행장애 (누적)",
+    yColor: CHART_COLOR_DISRUPTION,
+    axisDefaultMax: 20,
+    dashboardChart: "scoped-disruptions",
+    showScoped,
   });
 }
 
@@ -647,17 +685,21 @@ async function refreshPortalDashboard(options = {}) {
   const isGuest = options.guest ?? (typeof getToken !== "function" || !getToken());
   const showScopedCharts = Boolean(options.showScopedCharts);
   setPortalDashboardLoading(true);
+
+  let renderCharts = () => {};
+
   try {
     applyGuestPortalDashboardLayout(isGuest, { showScopedCharts });
     const result = isGuest
       ? await apiFetch("/api/public/dashboard/portal-stats")
       : await apiFetch("/api/dashboard/stats", { auth: true });
-    const { all, scoped, updatedAt, currentYear, yearStatusSummary, queryScopeSummary } = result.data;
+    const { all, scoped, updatedAt, currentYear, yearStatusSummary, queryScopeSummary, detailRows, allDetailRows, filterOptions, recentYears } =
+      result.data;
 
     renderQueryScopeSection(queryScopeSummary, isGuest);
 
     renderYearStatusPanels(yearStatusSummary, {
-      scopeLabel: isGuest ? null : "조회권한 기관",
+      scopeLabel: isGuest ? "전체기관" : "조회권한 기관",
     });
 
     const updatedEl = document.getElementById("portal-stat-updated");
@@ -671,38 +713,51 @@ async function refreshPortalDashboard(options = {}) {
 
     const useCombinedTrend = shouldUseCombinedTrendCharts(isGuest);
     const showScopedSeries = shouldShowScopedChartSeries(isGuest);
+    const hasDashboardTabs = Boolean(document.getElementById("portal-dashboard-tabs"));
 
-    if (useCombinedTrend) {
-      const yearlyStatusTitle = document.getElementById("chart-yearly-status-title");
-      if (yearlyStatusTitle) {
-        yearlyStatusTitle.textContent = `${currentYear}년 철도사고, 장애 발생현황`;
+    renderCharts = () => {
+      if (useCombinedTrend) {
+        if (hasDashboardTabs && typeof initDashboardTabs === "function") {
+          initDashboardTabs({
+            currentYear,
+            detailRows: detailRows ?? [],
+            allDetailRows: allDetailRows ?? detailRows ?? [],
+            filterOptions: filterOptions ?? { agencies: [], railCategories: [] },
+            recentYears: recentYears ?? [],
+            showScopedSeries,
+          });
+        } else {
+          setYearlyStatusChartTitles(currentYear);
+
+          renderCombinedTrendChart({
+            canvasId: "chart-combined-accidents",
+            chartKey: "combinedAccidents",
+            allRows: all.recent5Accidents,
+            scopedRows: scoped.recent5Accidents,
+            axisDefaultMax: 10,
+            scopedDashboardChart: "scoped-accidents",
+            showScoped: showScopedSeries,
+          });
+          renderCombinedTrendChart({
+            canvasId: "chart-combined-disruptions",
+            chartKey: "combinedDisruptions",
+            allRows: all.recent5Disruptions,
+            scopedRows: scoped.recent5Disruptions,
+            axisDefaultMax: 20,
+            scopedDashboardChart: "scoped-disruptions",
+            showScoped: showScopedSeries,
+          });
+        }
+
+        renderYearlyCombinedStatusChart(
+          all.monthlyCurrentYear ?? scoped.monthlyCurrentYear,
+          scoped.monthlyCurrentYear,
+          currentYear,
+          { showScoped: showScopedSeries },
+        );
+        return;
       }
 
-      renderCombinedTrendChart({
-        canvasId: "chart-combined-accidents",
-        chartKey: "combinedAccidents",
-        allRows: all.recent5Accidents,
-        scopedRows: scoped.recent5Accidents,
-        axisDefaultMax: 10,
-        scopedDashboardChart: "scoped-accidents",
-        showScoped: showScopedSeries,
-      });
-      renderCombinedTrendChart({
-        canvasId: "chart-combined-disruptions",
-        chartKey: "combinedDisruptions",
-        allRows: all.recent5Disruptions,
-        scopedRows: scoped.recent5Disruptions,
-        axisDefaultMax: 20,
-        scopedDashboardChart: "scoped-disruptions",
-        showScoped: showScopedSeries,
-      });
-      renderYearlyCombinedStatusChart(
-        all.monthlyCurrentYear ?? scoped.monthlyCurrentYear,
-        scoped.monthlyCurrentYear,
-        currentYear,
-        { showScoped: showScopedSeries },
-      );
-    } else {
       renderLineChart(
         "chart-all-accidents",
         "allAccidents",
@@ -745,18 +800,27 @@ async function refreshPortalDashboard(options = {}) {
           axisDefaultMax: 20,
         },
       );
-    }
-
-    if (!useCombinedTrend) {
       renderMonthlyBarChart(scoped.monthlyCurrentYear, currentYear, {
         clickable: !isGuest,
         accessDenied: isGuest && showScopedCharts,
       });
-    }
+    };
   } finally {
     setPortalDashboardLoading(false);
   }
+
+  requestAnimationFrame(() => {
+    renderCharts();
+    requestAnimationFrame(() => {
+      resizePortalCharts();
+      if (typeof resizeDashboardTabCharts === "function") {
+        resizeDashboardTabCharts();
+      }
+    });
+  });
 }
+
+window.resizePortalCharts = resizePortalCharts;
 
 function initPortalDashboard(options = {}) {
   const hasCombinedCharts = document.getElementById("chart-combined-accidents");

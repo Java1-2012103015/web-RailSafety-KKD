@@ -26,15 +26,35 @@ export type DashboardRow = {
   accidentAt: Date;
   lineName: string;
   accidentType: string;
+  deaths?: number;
+  injuries?: number;
   detail: {
     registrationAgency: string | null;
     registrationStatus: string | null;
     accidentKind: string | null;
+    railwayDivision?: string | null;
+    seriousInjuries?: number | null;
     stationA?: string | null;
     stationB?: string | null;
     baseStation?: string | null;
     occurrencePlace?: string | null;
   } | null;
+};
+
+export type DashboardDetailRow = {
+  year: number;
+  month: number;
+  agency: string;
+  railCategory: string | null;
+  deaths: number;
+  seriousInjuries: number;
+  isAccident: boolean;
+  isDisruption: boolean;
+};
+
+export type DashboardFilterOptions = {
+  agencies: string[];
+  railCategories: string[];
 };
 
 export function isDisruption(row: DashboardRow): boolean {
@@ -285,4 +305,29 @@ export function filterRowsByQueryPermission(
   }
 
   return filtered;
+}
+
+export function buildDashboardDetailRows(rows: DashboardRow[]): DashboardDetailRow[] {
+  return rows.map((row) => ({
+    year: row.accidentAt.getFullYear(),
+    month: row.accidentAt.getMonth() + 1,
+    agency: resolveRegistrationAgency(row),
+    railCategory: row.detail?.railwayDivision?.trim() || null,
+    deaths: row.deaths ?? 0,
+    seriousInjuries: row.detail?.seriousInjuries ?? row.injuries ?? 0,
+    isAccident: isRailwayAccident(row),
+    isDisruption: isDisruption(row),
+  }));
+}
+
+export function extractDashboardFilterOptions(detailRows: DashboardDetailRow[]): DashboardFilterOptions {
+  const agencies = [...new Set(detailRows.map((row) => row.agency))].sort((a, b) => a.localeCompare(b, "ko"));
+  const railCategories = [
+    ...new Set(
+      detailRows
+        .map((row) => row.railCategory)
+        .filter((value): value is string => Boolean(value?.trim())),
+    ),
+  ].sort((a, b) => a.localeCompare(b, "ko"));
+  return { agencies, railCategories };
 }

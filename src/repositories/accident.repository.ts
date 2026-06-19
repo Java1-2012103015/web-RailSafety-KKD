@@ -278,10 +278,14 @@ export class AccidentRepository {
       accidentAt: Date;
       lineName: string;
       accidentType: AccidentType;
+      deaths: number;
+      injuries: number;
       detail: {
         registrationAgency: string | null;
         registrationStatus: string | null;
         accidentKind: string | null;
+        railwayDivision: string | null;
+        seriousInjuries: number | null;
         stationA: string | null;
         stationB: string | null;
         baseStation: string | null;
@@ -294,11 +298,15 @@ export class AccidentRepository {
         accidentAt: true,
         lineName: true,
         accidentType: true,
+        deaths: true,
+        injuries: true,
         detail: {
           select: {
             registrationAgency: true,
             registrationStatus: true,
             accidentKind: true,
+            railwayDivision: true,
+            seriousInjuries: true,
             stationA: true,
             stationB: true,
             baseStation: true,
