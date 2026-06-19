@@ -188,7 +188,18 @@
                   </tr>
                   <tr>
                     <th class="req">발생구간(노선, 역)</th>
-                    <td colspan="5"><input id="f-line-section" class="detail-input" readonly /></td>
+                    <td colspan="5">
+                      <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                        <span class="text-gray-600">노선</span>
+                        <input id="f-line-name" class="detail-input w-28 sm:w-36" readonly />
+                        <span class="text-gray-600">역1</span>
+                        <input id="f-station-a" class="detail-input w-24 sm:w-32" readonly />
+                        <span class="text-gray-600">역2</span>
+                        <input id="f-station-b" class="detail-input w-24 sm:w-32" readonly />
+                        <span class="text-gray-600">구간</span>
+                        <input id="f-occurrence-place" class="detail-input min-w-[8rem] flex-1" readonly />
+                      </div>
+                    </td>
                   </tr>
                 </tbody>
               </table>

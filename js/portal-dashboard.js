@@ -30,10 +30,11 @@ function resizePortalCharts() {
   });
 }
 
-function navigateToScopedAccidentSearch({ year, month = null, dashboardChart }) {
+function navigateToScopedAccidentSearch({ year, month = null, throughMonth = null, dashboardChart }) {
   const params = new URLSearchParams();
   params.set("year", String(year));
   if (month) params.set("month", String(month));
+  if (throughMonth) params.set("throughMonth", String(throughMonth));
   params.set("dashboardChart", dashboardChart);
   window.location.href = `/accidents?${params.toString()}`;
 }
@@ -700,6 +701,7 @@ async function refreshPortalDashboard(options = {}) {
 
     renderYearStatusPanels(yearStatusSummary, {
       scopeLabel: isGuest ? "전체기관" : "조회권한 기관",
+      clickable: !isGuest,
     });
 
     const updatedEl = document.getElementById("portal-stat-updated");

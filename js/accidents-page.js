@@ -192,6 +192,7 @@ function applyFiltersFromDashboardUrl() {
   const params = new URLSearchParams(window.location.search);
   const year = params.get("year");
   const month = params.get("month");
+  const throughMonth = params.get("throughMonth");
   const dashboardChart = params.get("dashboardChart");
   if (!year && !dashboardChart) return;
 
@@ -199,7 +200,12 @@ function applyFiltersFromDashboardUrl() {
     const start = document.getElementById("filter-start-date");
     const end = document.getElementById("filter-end-date");
     const y = Number(year);
-    if (month && /^(?:[1-9]|1[0-2])$/.test(month)) {
+    if (throughMonth && /^(?:[1-9]|1[0-2])$/.test(throughMonth)) {
+      const tm = Number(throughMonth);
+      const lastDay = new Date(y, tm, 0).getDate();
+      if (start) start.value = `${year}-01-01`;
+      if (end) end.value = `${year}-${pad2(tm)}-${pad2(lastDay)}`;
+    } else if (month && /^(?:[1-9]|1[0-2])$/.test(month)) {
       const m = Number(month);
       const lastDay = new Date(y, m, 0).getDate();
       if (start) start.value = `${year}-${pad2(m)}-01`;
@@ -893,7 +899,7 @@ function renderAccidents(items) {
       <td class="border-r border-gray-200 px-1 py-1.5">
         <input type="checkbox" class="accident-row-check rounded border-gray-400" data-id="${row.id}" />
       </td>
-      <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5 text-left">${enriched.serialNo}</td>
+      <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5 text-center">${enriched.serialNo}</td>
       <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5">${formatDateOnly(row.accidentAt)}</td>
       <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5">${enriched.operatingAgency}</td>
       <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5">${row.lineName ?? "-"}</td>

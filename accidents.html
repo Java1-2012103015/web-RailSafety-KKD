@@ -42,6 +42,43 @@
         min-width: 5.75rem;
         max-width: 5.75rem;
       }
+      .accidents-search-fields {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.75rem 0.625rem;
+      }
+      @media (min-width: 768px) {
+        .accidents-search-fields {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (min-width: 1280px) {
+        .accidents-search-fields {
+          grid-template-columns:
+            minmax(0, 1.15fr)
+            minmax(0, 0.9fr)
+            minmax(0, 1.15fr)
+            minmax(0, 0.95fr)
+            minmax(0, 1.35fr);
+          column-gap: 0.75rem;
+        }
+      }
+      .accidents-search-field {
+        min-width: 0;
+      }
+      .accidents-search-field-period .accidents-search-date-range {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        width: 100%;
+      }
+      .accidents-search-date {
+        min-width: 0;
+        flex: 1 1 0;
+        width: auto;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+      }
     </style>
   </head>
   <body class="min-h-screen overflow-x-hidden bg-gray-100 text-gray-800">
@@ -111,33 +148,33 @@
                 <p class="text-sm font-semibold text-gray-800">검색 조건</p>
               </div>
 
-              <div class="space-y-4 p-4">
-                <div class="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 xl:grid-cols-4">
-                  <div class="min-w-0">
+              <div class="p-4">
+                <div class="accidents-search-fields">
+                  <div class="accidents-search-field">
                     <label for="filter-agency" class="mb-1.5 block text-xs font-medium text-gray-600">등록기관</label>
                     <select
                       id="filter-agency"
                       name="agency"
-                      class="accidents-filter-control w-full max-w-none sm:max-w-[220px] xl:max-w-none"
+                      class="accidents-filter-control w-full"
                     >
                       <option value="">전체</option>
                     </select>
                   </div>
-                  <div class="min-w-0">
+                  <div class="accidents-search-field">
                     <label for="filter-rail-category" class="mb-1.5 block text-xs font-medium text-gray-600">철도구분</label>
-                    <select id="filter-rail-category" name="railCategory" class="accidents-filter-control w-full max-w-none sm:max-w-[180px] xl:max-w-none">
+                    <select id="filter-rail-category" name="railCategory" class="accidents-filter-control w-full">
                       <option value="">전체</option>
                     </select>
                   </div>
-                  <div class="min-w-0">
+                  <div class="accidents-search-field">
                     <label for="filter-line" class="mb-1.5 block text-xs font-medium text-gray-600">노선</label>
-                    <select id="filter-line" name="lineName" class="accidents-filter-control w-full max-w-none sm:max-w-[220px] xl:max-w-none">
+                    <select id="filter-line" name="lineName" class="accidents-filter-control w-full">
                       <option value="">전체</option>
                     </select>
                   </div>
-                  <div class="min-w-0">
+                  <div class="accidents-search-field">
                     <label for="filter-type-l1" class="mb-1.5 block text-xs font-medium text-gray-600">사고유형</label>
-                    <select id="filter-type-l1" class="accidents-filter-control w-full max-w-none sm:max-w-[180px] xl:max-w-none">
+                    <select id="filter-type-l1" class="accidents-filter-control w-full">
                       <option value="">전체</option>
                       <option value="사고">사고</option>
                       <option value="준사고">준사고</option>
@@ -145,14 +182,13 @@
                       <option value="운행장애(관리)">운행장애(관리)</option>
                     </select>
                   </div>
-                </div>
-
-                <div class="border-t border-gray-100 pt-4">
-                  <label class="mb-1.5 block text-xs font-medium text-gray-600">기간</label>
-                  <div class="flex flex-wrap items-center gap-2">
-                    <input id="filter-start-date" name="startDate" type="date" class="accidents-filter-control w-full max-w-[160px]" />
-                    <span class="text-sm text-gray-400">~</span>
-                    <input id="filter-end-date" name="endDate" type="date" class="accidents-filter-control w-full max-w-[160px]" />
+                  <div class="accidents-search-field accidents-search-field-period">
+                    <label class="mb-1.5 block text-xs font-medium text-gray-600">기간</label>
+                    <div class="accidents-search-date-range">
+                      <input id="filter-start-date" name="startDate" type="date" class="accidents-filter-control accidents-search-date" />
+                      <span class="shrink-0 text-sm text-gray-400">~</span>
+                      <input id="filter-end-date" name="endDate" type="date" class="accidents-filter-control accidents-search-date" />
+                    </div>
                   </div>
                 </div>
               </div>
