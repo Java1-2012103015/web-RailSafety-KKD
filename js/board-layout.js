@@ -86,13 +86,18 @@ const PORTAL_SECTIONS = [
       return "/accidents";
     },
     findMenu(menus) {
-      return menus.find((menu) => menu.title === "철도 데이터베이스") ?? null;
+      return (
+        menus.find(
+          (menu) =>
+            menu.title === "철도 데이터시트" || menu.title === "철도 데이터베이스",
+        ) ?? null
+      );
     },
-    defaultTitle: "철도 데이터베이스",
+    defaultTitle: "철도 데이터시트",
     defaultItems: [
-      { title: "철도사고장애정보 DB", path: "/accidents" },
-      { title: "철도안전 투자공시 DB", path: "/investment-disclosure" },
-      { title: "철도시설침수경보 DB", path: "/flood-alert" },
+      { title: "철도사고장애정보 조회", path: "/accidents" },
+      { title: "철도안전 투자공시 조회", path: "/investment-disclosure" },
+      { title: "철도시설침수경보 조회", path: "/flood-alert" },
     ],
   },
 ];

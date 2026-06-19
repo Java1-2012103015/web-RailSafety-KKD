@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>로그인 | 철도안전정보종합관리시스템</title>
+    <title>접속 키 인증 | 철도안전정보종합관리시스템</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -30,10 +30,7 @@
             <span data-branding-wrap="logo" class="branding-logo-box hidden shrink-0">
               <img id="branding-logo" alt="CI logo" />
             </span>
-            <span
-              id="branding-ci-mark"
-              class="hidden shrink-0 rounded bg-white/15 px-2 py-0.5 text-[11px] font-semibold"
-            ></span>
+            <span id="branding-ci-mark" class="hidden shrink-0"></span>
             <h1 data-branding="system-name" class="text-base font-bold sm:text-lg">철도안전정보종합관리시스템</h1>
           </div>
           <a href="/public/dashboard/accidents" class="text-sm text-gray-200 transition hover:text-white">공개 대시보드</a>
@@ -42,12 +39,12 @@
 
       <main class="flex flex-1 items-center justify-center px-4 py-10">
         <div class="w-full max-w-md rounded-sm border border-gray-300 bg-white p-6 shadow-sm sm:p-8">
-          <h2 class="text-xl font-bold text-gray-900">로그인</h2>
-          <p class="mt-2 text-sm text-gray-600">이메일(ID)과 비밀번호를 입력해 주세요.</p>
+          <h2 class="text-xl font-bold text-gray-900">접속 키 인증</h2>
+          <p class="mt-2 text-sm text-gray-600">이메일과 인증키를 입력해 주세요.</p>
 
           <form id="login-form" class="mt-6 space-y-4">
             <div>
-              <label for="email" class="mb-1 block text-sm font-medium text-gray-700">이메일(ID)</label>
+              <label for="email" class="mb-1 block text-sm font-medium text-gray-700">이메일</label>
               <input
                 id="email"
                 name="email"
@@ -58,7 +55,7 @@
               />
             </div>
             <div>
-              <label for="password" class="mb-1 block text-sm font-medium text-gray-700">비밀번호</label>
+              <label for="password" class="mb-1 block text-sm font-medium text-gray-700">인증키 입력</label>
               <input
                 id="password"
                 name="password"
@@ -74,17 +71,34 @@
               id="login-submit"
               class="w-full rounded bg-navy-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-navy-800 disabled:opacity-60"
             >
-              로그인
+              인증확인
             </button>
-            <a
-              href="/register"
-              class="block w-full rounded border border-gray-300 px-4 py-2.5 text-center text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            <button
+              type="button"
+              id="auth-key-inquiry-btn"
+              class="w-full rounded border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
             >
-              사용등록 신청
-            </a>
+              인증키 문의
+            </button>
           </form>
         </div>
       </main>
+    </div>
+
+    <div id="auth-key-inquiry-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/40 p-4">
+      <div class="w-full max-w-sm rounded-sm border border-gray-300 bg-white p-6 shadow-lg" role="dialog" aria-modal="true" aria-labelledby="auth-key-inquiry-title">
+        <h3 id="auth-key-inquiry-title" class="text-base font-bold text-gray-900">인증키 문의</h3>
+        <p class="mt-3 text-sm leading-relaxed text-gray-700">
+          한국교통안전공단 철도안전처(<a href="tel:0544597328" class="font-medium text-navy-800 underline">054-459-7328</a>)로 문의주시기 바랍니다.
+        </p>
+        <button
+          type="button"
+          id="auth-key-inquiry-close"
+          class="mt-5 w-full rounded bg-navy-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-navy-800"
+        >
+          확인
+        </button>
+      </div>
     </div>
 
     <script src="/js/api.js"></script>
@@ -102,12 +116,29 @@
         const form = document.getElementById("login-form");
         const errorEl = document.getElementById("login-error");
         const submitBtn = document.getElementById("login-submit");
+        const inquiryBtn = document.getElementById("auth-key-inquiry-btn");
+        const inquiryModal = document.getElementById("auth-key-inquiry-modal");
+        const inquiryCloseBtn = document.getElementById("auth-key-inquiry-close");
+
+        function openInquiryModal() {
+          inquiryModal.classList.remove("hidden");
+        }
+
+        function closeInquiryModal() {
+          inquiryModal.classList.add("hidden");
+        }
+
+        inquiryBtn.addEventListener("click", openInquiryModal);
+        inquiryCloseBtn.addEventListener("click", closeInquiryModal);
+        inquiryModal.addEventListener("click", (event) => {
+          if (event.target === inquiryModal) closeInquiryModal();
+        });
 
         form.addEventListener("submit", async (event) => {
           event.preventDefault();
           errorEl.classList.add("hidden");
           submitBtn.disabled = true;
-          submitBtn.textContent = "로그인 중...";
+          submitBtn.textContent = "인증 확인 중...";
 
           try {
             const email = document.getElementById("email").value.trim();
@@ -115,11 +146,11 @@
             await login(email, password);
             window.location.href = "/portal";
           } catch (error) {
-            errorEl.textContent = error.message || "로그인에 실패했습니다.";
+            errorEl.textContent = error.message || "인증에 실패했습니다.";
             errorEl.classList.remove("hidden");
           } finally {
             submitBtn.disabled = false;
-            submitBtn.textContent = "로그인";
+            submitBtn.textContent = "인증확인";
           }
         });
       });

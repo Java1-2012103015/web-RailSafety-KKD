@@ -1,3 +1,29 @@
+function getSystemNameTypographyClasses() {
+  const systemNameEl = document.querySelector('[data-branding="system-name"]');
+  if (!systemNameEl) {
+    return ["font-bold", "tracking-tight", "text-sm", "sm:text-base", "md:text-lg"];
+  }
+
+  return [...systemNameEl.classList].filter(
+    (cls) =>
+      cls === "font-bold" ||
+      cls === "tracking-tight" ||
+      cls.startsWith("text-") ||
+      /^(sm|md|lg|xl):text-/.test(cls),
+  );
+}
+
+function applyCiMarkElement(config) {
+  const ciMarkEl = document.getElementById("branding-ci-mark");
+  if (!ciMarkEl) return;
+
+  const show = Boolean(config.showCiMark && config.ciMarkLabel);
+  ciMarkEl.textContent = show ? config.ciMarkLabel : "";
+
+  const typography = getSystemNameTypographyClasses();
+  ciMarkEl.className = ["shrink-0", ...typography, show ? "" : "hidden"].filter(Boolean).join(" ");
+}
+
 function applyBranding(config) {
   if (!config) return;
 
@@ -30,16 +56,7 @@ function applyBranding(config) {
     }
   }
 
-  const ciMarkEl = document.getElementById("branding-ci-mark");
-  if (ciMarkEl) {
-    if (config.showCiMark && config.ciMarkLabel) {
-      ciMarkEl.textContent = config.ciMarkLabel;
-      ciMarkEl.classList.remove("hidden");
-    } else {
-      ciMarkEl.classList.add("hidden");
-      ciMarkEl.textContent = "";
-    }
-  }
+  applyCiMarkElement(config);
 
   document.querySelectorAll('[data-branding-wrap="hero"]').forEach((el) => {
     el.classList.toggle("hidden", !config.showHero);

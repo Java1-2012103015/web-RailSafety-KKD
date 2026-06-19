@@ -270,26 +270,18 @@ function hasClientOnlyFilters() {
 
   return Boolean(
     document.getElementById("filter-closed")?.value ||
-      document.getElementById("filter-investigation")?.value ||
       document.getElementById("filter-rail-category")?.value ||
       document.getElementById("filter-train-type")?.value ||
-      document.getElementById("filter-linked")?.value ||
-      document.getElementById("filter-type-l1")?.value ||
-      document.getElementById("filter-contention")?.value ||
-      document.getElementById("filter-supplement")?.value,
+      document.getElementById("filter-type-l1")?.value,
   );
 }
 
 function matchesClientFilters(row) {
   const agency = document.getElementById("filter-agency")?.value;
   const closed = document.getElementById("filter-closed")?.value;
-  const investigation = document.getElementById("filter-investigation")?.value;
   const railCategory = document.getElementById("filter-rail-category")?.value;
   const trainType = document.getElementById("filter-train-type")?.value;
-  const linked = document.getElementById("filter-linked")?.value;
   const typeL1 = document.getElementById("filter-type-l1")?.value;
-  const contention = document.getElementById("filter-contention")?.value;
-  const supplement = document.getElementById("filter-supplement")?.value;
 
   if (agency) {
     const reg = row.detail?.registrationAgency?.trim() ?? row.operatingAgency ?? "";
@@ -298,16 +290,12 @@ function matchesClientFilters(row) {
     if (!variants.some((variant) => reg.includes(variant))) return false;
   }
   if (closed && row.closingSetting !== closed) return false;
-  if (investigation && row.investigationStatus !== investigation) return false;
   if (railCategory && row.railCategory !== railCategory) return false;
   if (trainType && row.trainType !== trainType) return false;
-  if (linked && row.linked !== linked) return false;
   if (typeL1 && !dashboardAccidentKinds?.length) {
     const category = classifyAccidentKind(row.detail?.accidentKind) ?? row.accidentCategory;
     if (category !== typeL1) return false;
   }
-  if (contention && row.contention !== contention) return false;
-  if (supplement && row.supplementRequest !== supplement) return false;
   return true;
 }
 
@@ -713,11 +701,13 @@ function exportCasualtyInfoToXlsx() {
   });
 }
 
+const ACCIDENT_LIST_COL_COUNT = 12;
+
 function renderAccidents(items) {
   const tbody = document.getElementById("accidents-table-body");
   if (!items.length) {
     tbody.innerHTML =
-      '<tr><td colspan="19" class="px-4 py-8 text-center text-sm text-gray-500">조회 결과가 없습니다.</td></tr>';
+      `<tr><td colspan="${ACCIDENT_LIST_COL_COUNT}" class="px-4 py-8 text-center text-sm text-gray-500">조회 결과가 없습니다.</td></tr>`;
     return;
   }
 
@@ -733,25 +723,18 @@ function renderAccidents(items) {
         <input type="checkbox" class="accident-row-check rounded border-gray-400" data-id="${row.id}" />
       </td>
       <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5 text-left">${enriched.serialNo}</td>
-      <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5">${formatDateTime(row.accidentAt)}</td>
+      <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5">${formatDateOnly(row.accidentAt)}</td>
       <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5">${enriched.operatingAgency}</td>
-      <td class="border-r border-gray-200 px-2 py-1.5">${enriched.registrationStatus}</td>
-      <td class="border-r border-gray-200 px-2 py-1.5">${enriched.relatedAgency}</td>
       <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5 text-left">${row.lineName}</td>
       <td class="border-r border-gray-200 px-2 py-1.5">${enriched.accidentCategory}</td>
       <td class="border-r border-gray-200 px-2 py-1.5">${enriched.typeLabel}</td>
       <td class="border-r border-gray-200 px-2 py-1.5">${row.deaths}</td>
       <td class="border-r border-gray-200 px-2 py-1.5">${row.injuries}</td>
       <td class="border-r border-gray-200 px-2 py-1.5 text-right">${enriched.damageAmount}</td>
-      <td class="border-r border-gray-200 px-2 py-1.5">${enriched.closingSetting}</td>
       <td class="border-r border-gray-200 px-2 py-1.5">${attachmentCell}</td>
-      <td class="border-r border-gray-200 px-2 py-1.5">${enriched.investigationStatus}</td>
-      <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5">${enriched.registeredAt}</td>
-      <td class="border-r border-gray-200 px-2 py-1.5">
+      <td class="px-2 py-1.5">
         <button type="button" class="rounded border border-gray-400 bg-white px-2 py-0.5 text-[11px] hover:bg-gray-50 accident-detail-btn" data-id="${row.id}">보기</button>
       </td>
-      <td class="border-r border-gray-200 px-2 py-1.5">${enriched.supplementRequest}</td>
-      <td class="px-2 py-1.5">${enriched.supplementResult}</td>
     </tr>
   `;
     })
@@ -895,7 +878,7 @@ function renderCauseSummary(items) {
 async function loadAccidentsList() {
   const tbody = document.getElementById("accidents-table-body");
   tbody.innerHTML =
-    '<tr><td colspan="19" class="px-4 py-8 text-center text-sm text-gray-500">불러오는 중...</td></tr>';
+    `<tr><td colspan="${ACCIDENT_LIST_COL_COUNT}" class="px-4 py-8 text-center text-sm text-gray-500">불러오는 중...</td></tr>`;
 
   const params = buildQueryParams();
   const clientFilters = hasClientOnlyFilters();
@@ -1097,7 +1080,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const tbody = document.getElementById("accidents-table-body");
     if (tbody) {
       tbody.innerHTML =
-        '<tr><td colspan="19" class="px-4 py-6 text-center text-sm text-red-600">데이터를 불러오지 못했습니다.</td></tr>';
+        `<tr><td colspan="${ACCIDENT_LIST_COL_COUNT}" class="px-4 py-6 text-center text-sm text-red-600">데이터를 불러오지 못했습니다.</td></tr>`;
     }
   }
 });

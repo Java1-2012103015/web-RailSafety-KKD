@@ -94,33 +94,20 @@ export function getLastDisplayYear(calendarYear = new Date().getFullYear()): num
   return calendarYear - 1;
 }
 
-export type MonthCompareMetric = {
-  month: number;
-  periodLabel: string;
-  recent5YearAvg: number;
-  priorYear: number;
-  priorYearLabel: string;
-  currentYear?: number;
-  currentYearLabel?: string;
-  /** DB에 해당 유형(사고/장애) 집계 데이터가 있으면 true */
-  dataReady: boolean;
+export type YearStatusMetric = {
+  cumulativeTotal: number;
+  prevMonthCount: number;
+  prevMonth: number;
+  prevMonthYear: number;
+  prevMonthLabel: string;
 };
 
-export type MonthComparisonBundle = {
-  prevMonth: {
-    accidents: MonthCompareMetric;
-    disruptions: MonthCompareMetric;
-  };
-  currentMonth: {
-    accidents: MonthCompareMetric;
-    disruptions: MonthCompareMetric;
-  };
+export type YearStatusSummary = {
+  year: number;
+  currentMonth: number;
+  accidents: YearStatusMetric;
+  disruptions: YearStatusMetric;
 };
-
-function roundMonthAvg(total: number, count: number): number {
-  if (count <= 0) return 0;
-  return Math.round((total / count) * 10) / 10;
-}
 
 function countRowsInMonth(
   rows: DashboardRow[],
@@ -136,95 +123,53 @@ function countRowsInMonth(
   }).length;
 }
 
-function hasDashboardKindData(rows: DashboardRow[], kind: "accident" | "disruption"): boolean {
-  return rows.some((row) => (kind === "accident" ? isRailwayAccident(row) : isDisruption(row)));
-}
-
-function buildMonthCompareMetric(
+function countRowsInYearThroughMonth(
   rows: DashboardRow[],
-  month: number,
-  displayYear: number,
-  priorYear: number,
-  recentYears: number[],
-  includeCurrentYear: boolean,
+  year: number,
+  throughMonth: number,
   kind: "accident" | "disruption",
-  options: { requireDataReady?: boolean } = {},
-): MonthCompareMetric {
-  const recent5Total = recentYears.reduce(
-    (sum, year) => sum + countRowsInMonth(rows, year, month, kind),
-    0,
-  );
-  const dataReady = options.requireDataReady ? hasDashboardKindData(rows, kind) : true;
-  const metric: MonthCompareMetric = {
-    month,
-    periodLabel: `${displayYear}년 ${month}월`,
-    recent5YearAvg: roundMonthAvg(recent5Total, recentYears.length),
-    priorYear: countRowsInMonth(rows, priorYear, month, kind),
-    priorYearLabel: `${priorYear}년`,
-    dataReady,
-  };
-  if (includeCurrentYear) {
-    metric.currentYear = countRowsInMonth(rows, displayYear, month, kind);
-    metric.currentYearLabel = `${displayYear}년`;
-  }
-  return metric;
+): number {
+  return rows.filter((row) => {
+    const y = row.accidentAt.getFullYear();
+    const m = row.accidentAt.getMonth() + 1;
+    if (y !== year || m > throughMonth) return false;
+    return kind === "accident" ? isRailwayAccident(row) : isDisruption(row);
+  }).length;
 }
 
-/** 직전 월·당월 철도사고/운행장애 비교 (최근 5년 평균·직전년도·올해) */
-export function computeMonthComparisonStats(
+function buildYearStatusMetric(
+  rows: DashboardRow[],
+  year: number,
+  currentMonth: number,
+  prevMonthYear: number,
+  prevMonth: number,
+  kind: "accident" | "disruption",
+): YearStatusMetric {
+  return {
+    cumulativeTotal: countRowsInYearThroughMonth(rows, year, currentMonth, kind),
+    prevMonthCount: countRowsInMonth(rows, prevMonthYear, prevMonth, kind),
+    prevMonth,
+    prevMonthYear,
+    prevMonthLabel: `${prevMonthYear}년 ${prevMonth}월`,
+  };
+}
+
+/** 당해 연도 장애·사고 현황 (DB 기준 누적 총계·직전월 발생 건수) */
+export function computeYearStatusSummary(
   rows: DashboardRow[],
   referenceDate: Date = new Date(),
-): MonthComparisonBundle {
-  const calendarYear = referenceDate.getFullYear();
-  const recentYears = getRecent5Years(calendarYear);
+): YearStatusSummary {
+  const year = referenceDate.getFullYear();
   const currentMonth = referenceDate.getMonth() + 1;
-  const prevDate = new Date(calendarYear, referenceDate.getMonth() - 1, 1);
+  const prevDate = new Date(year, referenceDate.getMonth() - 1, 1);
   const prevMonth = prevDate.getMonth() + 1;
   const prevMonthYear = prevDate.getFullYear();
 
   return {
-    prevMonth: {
-      accidents: buildMonthCompareMetric(
-        rows,
-        prevMonth,
-        prevMonthYear,
-        prevMonthYear - 1,
-        recentYears,
-        true,
-        "accident",
-        { requireDataReady: true },
-      ),
-      disruptions: buildMonthCompareMetric(
-        rows,
-        prevMonth,
-        prevMonthYear,
-        prevMonthYear - 1,
-        recentYears,
-        true,
-        "disruption",
-        { requireDataReady: true },
-      ),
-    },
-    currentMonth: {
-      accidents: buildMonthCompareMetric(
-        rows,
-        currentMonth,
-        calendarYear,
-        calendarYear - 1,
-        recentYears,
-        false,
-        "accident",
-      ),
-      disruptions: buildMonthCompareMetric(
-        rows,
-        currentMonth,
-        calendarYear,
-        calendarYear - 1,
-        recentYears,
-        false,
-        "disruption",
-      ),
-    },
+    year,
+    currentMonth,
+    accidents: buildYearStatusMetric(rows, year, currentMonth, prevMonthYear, prevMonth, "accident"),
+    disruptions: buildYearStatusMetric(rows, year, currentMonth, prevMonthYear, prevMonth, "disruption"),
   };
 }
 

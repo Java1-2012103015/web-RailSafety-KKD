@@ -2,7 +2,7 @@ import { AccidentRepository } from "../repositories/accident.repository";
 import { PermissionRepository } from "../repositories/permission.repository";
 import { ROLES } from "../constants/roles";
 import {
-  computeMonthComparisonStats,
+  computeYearStatusSummary,
   computeTrendStats,
   filterDashboardTargetRows,
   filterRowsByQueryPermission,
@@ -13,6 +13,7 @@ import {
   isRailwayAccident,
   type DashboardRow,
 } from "../utils/dashboard-stats";
+import { buildQueryScopeSummary } from "../utils/query-scope-summary";
 
 export class DashboardService {
   constructor(
@@ -26,23 +27,22 @@ export class DashboardService {
     return this.buildLegacyStats(rows);
   }
 
-  /** 비로그인 포털 대시보드 — 월별 차트는 전년 기준 */
+  /** 비로그인 포털 대시보드 — 전체기관 통계 (당해 연도 월별 포함) */
   async getGuestPortalStats() {
     const rawRows = await this.accidentRepository.findAllForDashboard();
     const rows = filterDashboardTargetRows(rawRows);
-    const calendarYear = new Date().getFullYear();
-    const lastYear = getLastDisplayYear(calendarYear);
-    const allStats = computeTrendStats(rows, calendarYear, lastYear);
+    const currentYear = new Date().getFullYear();
+    const allStats = computeTrendStats(rows, currentYear);
 
     return {
       updatedAt: new Date().toISOString(),
-      currentYear: lastYear,
-      calendarYear,
+      currentYear,
       guest: true,
-      monthComparison: computeMonthComparisonStats(rows),
+      yearStatusSummary: computeYearStatusSummary(rows),
       all: {
         recent5Accidents: allStats.recent5Accidents,
         recent5Disruptions: allStats.recent5Disruptions,
+        monthlyCurrentYear: allStats.monthlyCurrentYear,
       },
       scoped: {
         recent5Accidents: allStats.recent5Accidents,
@@ -59,9 +59,11 @@ export class DashboardService {
     const allStats = computeTrendStats(rows, currentYear);
 
     let scopedRows = rows;
+    let queryScopeSummary = null;
     if (auth.role !== ROLES.ADMIN) {
       const queryPermission = await this.permissionRepository.findRoleQueryPermission(auth.roleId);
       scopedRows = filterRowsByQueryPermission(rows, auth.role, queryPermission);
+      queryScopeSummary = buildQueryScopeSummary(auth.role, queryPermission);
     }
 
     const scopedStats = computeTrendStats(scopedRows, currentYear);
@@ -69,10 +71,12 @@ export class DashboardService {
     return {
       updatedAt: new Date().toISOString(),
       currentYear,
-      monthComparison: computeMonthComparisonStats(scopedRows),
+      yearStatusSummary: computeYearStatusSummary(scopedRows),
+      queryScopeSummary,
       all: {
         recent5Accidents: allStats.recent5Accidents,
         recent5Disruptions: allStats.recent5Disruptions,
+        monthlyCurrentYear: allStats.monthlyCurrentYear,
       },
       scoped: {
         recent5Accidents: scopedStats.recent5Accidents,
@@ -148,7 +152,7 @@ export class DashboardService {
         recent5YearNearMisses: recent5NearMisses,
         updatedAt: new Date().toISOString(),
       },
-      monthComparison: computeMonthComparisonStats(rows),
+      yearStatusSummary: computeYearStatusSummary(rows),
       recent5,
       yearlyAccidents,
       yearlyDisruptions,

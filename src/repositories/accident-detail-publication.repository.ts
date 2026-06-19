@@ -9,11 +9,11 @@ export class AccidentDetailPublicationRepository {
     return prisma.roleAccidentDetailPublication.findMany();
   }
 
-  upsert(roleId: number, visibleColumnKeys: string[]) {
+  upsert(roleId: number, visibleColumnKeys: string[], visibleTabKeys: string[]) {
     return prisma.roleAccidentDetailPublication.upsert({
       where: { roleId },
-      create: { roleId, visibleColumnKeys },
-      update: { visibleColumnKeys },
+      create: { roleId, visibleColumnKeys, visibleTabKeys },
+      update: { visibleColumnKeys, visibleTabKeys },
     });
   }
 }

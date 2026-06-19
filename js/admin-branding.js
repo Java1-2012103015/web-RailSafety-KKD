@@ -88,14 +88,15 @@ function renderPreview(item) {
     item.showLogo && item.logoUrl
       ? `<img src="${item.logoUrl}" alt="logo" class="h-8 w-8 object-contain" />`
       : "";
+  const headerTitleClass = "font-bold";
   const ciHtml =
     item.showCiMark && item.ciMarkLabel
-      ? `<span class="rounded bg-white/15 px-2 py-0.5 text-[11px]">${item.ciMarkLabel}</span>`
+      ? `<span class="${headerTitleClass}">${item.ciMarkLabel}</span>`
       : "";
 
   preview.innerHTML = `
     <div class="rounded bg-navy-900 p-4 text-white">
-      <div class="flex items-center gap-2">${logoHtml}${ciHtml}<strong>${item.systemName}</strong></div>
+      <div class="flex items-center gap-2">${logoHtml}${ciHtml}<strong class="${headerTitleClass}">${item.systemName}</strong></div>
       <p class="mt-2 text-xs text-gray-300">브라우저 타이틀: ${item.pageTitle}</p>
     </div>
     ${

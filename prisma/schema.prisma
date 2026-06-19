@@ -31,6 +31,7 @@ model RoleAccidentDetailPublication {
   roleId            Int      @id
   role              Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
   visibleColumnKeys Json
+  visibleTabKeys    Json     @default("[]")
   updatedAt         DateTime @updatedAt
 }
 

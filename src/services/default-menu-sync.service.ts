@@ -98,6 +98,20 @@ async function syncGuestScopedMenuPermissions(): Promise<void> {
 }
 
 export async function syncDefaultMenus(): Promise<void> {
+  await prisma.menu.updateMany({
+    where: { title: "철도 데이터베이스", parentId: null },
+    data: { title: "철도 데이터시트" },
+  });
+
+  const railwayDbChildRenames: Array<{ path: string; title: string }> = [
+    { path: "/accidents", title: "철도사고장애정보 조회" },
+    { path: "/investment-disclosure", title: "철도안전 투자공시 조회" },
+    { path: "/flood-alert", title: "철도시설침수경보 조회" },
+  ];
+  for (const { path, title } of railwayDbChildRenames) {
+    await prisma.menu.updateMany({ where: { path }, data: { title } });
+  }
+
   await prisma.menu.deleteMany({
     where: {
       OR: [
@@ -115,7 +129,7 @@ export async function syncDefaultMenus(): Promise<void> {
 
   const dashboard = await upsertRootMenu("대시보드", null, 1);
   const board = await upsertRootMenu("게시판", null, 2);
-  const railwayDb = await upsertRootMenu("철도 데이터베이스", null, 3);
+  const railwayDb = await upsertRootMenu("철도 데이터시트", null, 3);
   const admin = await upsertRootMenu("관리자", "/admin", 4);
 
   await upsertChildMenu(dashboard.id, "철도사고·장애", "/dashboard/accidents", 1);
@@ -125,9 +139,9 @@ export async function syncDefaultMenus(): Promise<void> {
   await upsertChildMenu(board.id, "공지사항", "/notices", 1);
   await upsertChildMenu(board.id, "자료실", "/archive", 2);
 
-  await upsertChildMenu(railwayDb.id, "철도사고장애정보 DB", "/accidents", 1);
-  await upsertChildMenu(railwayDb.id, "철도안전 투자공시 DB", "/investment-disclosure", 2);
-  await upsertChildMenu(railwayDb.id, "철도시설침수경보 DB", "/flood-alert", 3);
+  await upsertChildMenu(railwayDb.id, "철도사고장애정보 조회", "/accidents", 1);
+  await upsertChildMenu(railwayDb.id, "철도안전 투자공시 조회", "/investment-disclosure", 2);
+  await upsertChildMenu(railwayDb.id, "철도시설침수경보 조회", "/flood-alert", 3);
 
   await upsertChildMenu(admin.id, "사용자 관리", "/admin/users", 1);
   await upsertChildMenu(admin.id, "사용 등록 신청", "/admin/registrations", 2);

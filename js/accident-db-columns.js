@@ -174,6 +174,10 @@ const ACCIDENT_DB_COLUMNS = [
   { key: "investigationStatus", header: "조사상태" },
   { key: "registeredBy", header: "등록자" },
   { key: "savedAtText", header: "저장시간" },
+  { key: "supplementRequestStatus", header: "국토교통부 보완요청" },
+  { key: "supplementRequestDetail", header: "상세 보완요청 사항" },
+  { key: "supplementResultStatus", header: "보완결과" },
+  { key: "supplementResultDetail", header: "상세 보완결과" },
 ];
 
 function pad2(n) {

@@ -32,10 +32,7 @@
               <span data-branding-wrap="logo" class="branding-logo-box hidden shrink-0">
                 <img id="branding-logo" alt="CI logo" />
               </span>
-              <span
-                id="branding-ci-mark"
-                class="hidden shrink-0 rounded bg-white/15 px-2 py-0.5 text-[11px] font-semibold sm:text-xs"
-              ></span>
+              <span id="branding-ci-mark" class="hidden shrink-0"></span>
               <h1
                 data-branding="system-name"
                 class="truncate text-sm font-bold tracking-tight sm:text-base md:text-lg"
@@ -109,6 +106,41 @@
                 class="space-y-6 opacity-0 pointer-events-none"
                 aria-busy="true"
               >
+            <div id="portal-query-scope-section" class="hidden rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+              <div class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 pb-3">
+                <div>
+                  <h3 class="text-sm font-bold text-gray-900">조회권한 받은 기관 현황 (누적)</h3>
+                  <p id="portal-query-scope-role" class="mt-1 text-xs text-gray-500"></p>
+                </div>
+                <div id="portal-query-scope-meta" class="max-w-xl text-right text-xs leading-relaxed text-gray-600"></div>
+              </div>
+              <div id="portal-query-scope-institutions" class="hidden mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3"></div>
+            </div>
+
+            <section id="portal-combined-trends-section" class="hidden grid gap-4 lg:grid-cols-2">
+              <div class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+                <h3 class="mb-3 text-sm font-bold text-gray-900">최근 5년 운행장애 발생현황</h3>
+                <div class="h-80">
+                  <canvas id="chart-combined-disruptions"></canvas>
+                </div>
+              </div>
+              <div class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+                <h3 class="mb-3 text-sm font-bold text-gray-900">최근 5년 철도사고 발생현황</h3>
+                <div class="h-80">
+                  <canvas id="chart-combined-accidents"></canvas>
+                </div>
+              </div>
+            </section>
+
+            <div id="portal-yearly-status-section" class="hidden rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+              <h3 id="chart-yearly-status-title" class="mb-3 text-sm font-bold text-gray-900">
+                2026년 철도사고, 장애 발생현황
+              </h3>
+              <div class="h-80">
+                <canvas id="chart-yearly-combined-status"></canvas>
+              </div>
+            </div>
+
             <section id="month-compare-root" class="hidden space-y-4">
               <div class="grid gap-4 lg:grid-cols-2">
                 <div
@@ -132,37 +164,50 @@
               </div>
             </section>
 
+            <section id="year-status-root" class="hidden">
+              <div class="grid gap-4 lg:grid-cols-2">
+                <div
+                  id="panel-year-accidents"
+                  class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm"
+                ></div>
+                <div
+                  id="panel-year-disruptions"
+                  class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm"
+                ></div>
+              </div>
+            </section>
+
             <div id="portal-dashboard-charts-grid" class="grid gap-4 lg:grid-cols-2">
-              <div class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
-                <h3 class="mb-3 text-sm font-bold text-gray-900">최근 5년 철도사고 발생 추이 (전체기관)</h3>
-                <div class="h-72">
-                  <canvas id="chart-all-accidents"></canvas>
-                </div>
-              </div>
-
-              <div class="portal-dashboard-scoped rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
-                <h3 class="mb-3 text-sm font-bold text-gray-900">최근 5년 철도사고 발생 추이 (조회권한 기관)</h3>
-                <div class="h-72">
-                  <canvas id="chart-scoped-accidents"></canvas>
-                </div>
-              </div>
-
-              <div class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+              <div class="portal-dashboard-disruption-split rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
                 <h3 class="mb-3 text-sm font-bold text-gray-900">최근 5년 운행장애 발생 추이 (전체기관)</h3>
                 <div class="h-72">
                   <canvas id="chart-all-disruptions"></canvas>
                 </div>
               </div>
 
-              <div class="portal-dashboard-scoped rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+              <div class="portal-dashboard-accident-split rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+                <h3 class="mb-3 text-sm font-bold text-gray-900">최근 5년 철도사고 발생 추이 (전체기관)</h3>
+                <div class="h-72">
+                  <canvas id="chart-all-accidents"></canvas>
+                </div>
+              </div>
+
+              <div class="portal-dashboard-scoped portal-dashboard-disruption-split rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
                 <h3 class="mb-3 text-sm font-bold text-gray-900">최근 5년 운행장애 발생 추이 (조회권한 기관)</h3>
                 <div class="h-72">
                   <canvas id="chart-scoped-disruptions"></canvas>
                 </div>
               </div>
+
+              <div class="portal-dashboard-scoped portal-dashboard-accident-split rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+                <h3 class="mb-3 text-sm font-bold text-gray-900">최근 5년 철도사고 발생 추이 (조회권한 기관)</h3>
+                <div class="h-72">
+                  <canvas id="chart-scoped-accidents"></canvas>
+                </div>
+              </div>
             </div>
 
-            <div class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
+            <div id="portal-monthly-legacy-section" class="rounded-sm border border-gray-300 bg-white p-4 shadow-sm">
               <h3 id="chart-monthly-title" class="mb-3 text-sm font-bold text-gray-900">
                 2026년 철도사고·장애 발생현황 (조회권한 기관)
               </h3>
@@ -171,23 +216,46 @@
               </div>
             </div>
 
-            <div id="notices-section" class="rounded-sm border border-gray-300 bg-white shadow-sm">
-              <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-                <h3 class="text-lg font-bold text-gray-900">공지사항</h3>
-              <div class="flex items-center gap-3">
-                <button
-                  id="portal-notice-create-btn"
-                  type="button"
-                  class="hidden text-sm font-medium text-navy-800 transition hover:underline"
-                >
-                  게시물 등록
-                </button>
-                <a href="/notices" class="text-sm font-medium text-gray-600 transition hover:text-navy-800">더보기 &gt;</a>
+            <div id="portal-board-preview-row" class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div id="notices-section" class="rounded-sm border border-gray-300 bg-white shadow-sm">
+                <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+                  <h3 class="text-lg font-bold text-gray-900">공지사항</h3>
+                  <div class="flex items-center gap-3">
+                    <button
+                      id="portal-notice-create-btn"
+                      type="button"
+                      class="hidden text-sm font-medium text-navy-800 transition hover:underline"
+                    >
+                      게시물 등록
+                    </button>
+                    <a href="/notices" class="text-sm font-medium text-gray-600 transition hover:text-navy-800">더보기 &gt;</a>
+                  </div>
+                </div>
+                <ul id="notices-list" class="divide-y divide-gray-200">
+                  <li class="px-5 py-6 text-center text-sm text-gray-500">공지사항을 불러오는 중...</li>
+                </ul>
               </div>
+
+              <div id="archive-section" class="rounded-sm border border-gray-300 bg-white shadow-sm">
+                <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+                  <h3 class="text-lg font-bold text-gray-900">자료실</h3>
+                  <div class="flex items-center gap-3">
+                    <button
+                      id="portal-archive-create-btn"
+                      type="button"
+                      class="hidden text-sm font-medium text-navy-800 transition hover:underline"
+                    >
+                      게시물 등록
+                    </button>
+                    <a href="/archive" class="text-sm font-medium text-gray-600 transition hover:text-navy-800">더보기 &gt;</a>
+                  </div>
+                </div>
+                <ul id="archive-list" class="divide-y divide-gray-200">
+                  <li class="px-5 py-6 text-center text-sm text-gray-500">자료실을 불러오는 중...</li>
+                </ul>
               </div>
-              <ul id="notices-list" class="divide-y divide-gray-200">
-                <li class="px-5 py-6 text-center text-sm text-gray-500">공지사항을 불러오는 중...</li>
-              </ul>
+            </div>
+              </div>
             </div>
               </div>
             </div>
@@ -195,27 +263,16 @@
         </section>
       </main>
 
-      <footer class="bg-gray-200" data-branding-wrap="footer">
-        <div class="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 text-xs text-gray-700 sm:flex-row sm:items-end sm:justify-between sm:px-6 lg:px-8">
-          <div class="space-y-1">
-            <p>서울특별시 중구 세종대로 110 | 대표번호 02-1234-5678</p>
-            <p>문의: railsafety@domain.kr</p>
-            <p class="text-gray-600">Copyright (c) Rail Safety Information System. All rights reserved.</p>
-          </div>
-          <div class="flex items-center gap-2 self-start sm:self-auto">
-            <a
-              href="#"
-              class="rounded border border-gray-400 bg-white px-3 py-1.5 text-[11px] font-medium transition hover:bg-gray-50 sm:text-xs"
-              >사이트맵</a
-            >
-            <a
-              href="#top"
-              class="rounded bg-navy-900 px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-navy-800 sm:text-xs"
-              >TOP</a
-            >
-          </div>
+      <div id="portal-local-gov-login-wrap" class="hidden border-t border-gray-200 bg-gray-100 px-4 py-10 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-7xl text-left">
+          <a
+            href="/login"
+            class="text-sm text-gray-700 no-underline transition hover:underline underline-offset-4"
+          >
+            지자체 안전정보
+          </a>
         </div>
-      </footer>
+      </div>
     </div>
     <script src="/js/api.js"></script>
     <script src="/js/auth.js"></script>
@@ -235,28 +292,22 @@
           const userNameEl = document.getElementById("portal-user-name");
           const logoutBtn = document.getElementById("portal-logout-btn");
           const descEl = document.querySelector("main .text-sm.text-gray-600");
-          const noticesSection = document.getElementById("notices-section");
+          const boardPreviewRow = document.getElementById("portal-board-preview-row");
+          const localGovLoginWrap = document.getElementById("portal-local-gov-login-wrap");
 
-          if (userNameEl) userNameEl.textContent = "비회원";
-          if (logoutBtn) {
-            logoutBtn.textContent = "로그인";
-            logoutBtn.addEventListener("click", () => {
-              window.location.href = "/login";
-            });
-          }
+          if (userNameEl) userNameEl.classList.add("hidden");
+          if (logoutBtn) logoutBtn.classList.add("hidden");
+          if (localGovLoginWrap) localGovLoginWrap.classList.remove("hidden");
           if (descEl) {
-            descEl.textContent = "최근 5년 사고·장애 발생 추이 및 전년 월별 현황";
+            descEl.textContent = "최근 5년 전체기관 사고·장애 발생현황 및 월별 누적 통계";
           }
-          if (noticesSection) noticesSection.classList.add("hidden");
+          if (boardPreviewRow) boardPreviewRow.classList.add("hidden");
 
           const navList = document.getElementById("portal-nav-list");
           if (navList) {
-            navList.innerHTML = `
-              <li>
-                <a href="/login" class="block py-1 font-semibold text-white underline underline-offset-4">로그인</a>
-              </li>
-            `;
+            navList.innerHTML = "";
           }
+          document.querySelector("header .bg-navy-800")?.classList.add("hidden");
 
           try {
             await loadPublicBranding();
@@ -274,7 +325,9 @@
           await Promise.all([loadPortalBranding(), loadPortalMenus(), refreshSession()]);
           initPortalDashboard();
           loadPortalNotices(5);
-          bindNoticeAdminCreateButton("portal-notice-create-btn");
+          loadPortalArchive(5);
+          bindNoticeAdminCreateButton("portal-notice-create-btn", { defaultBoardType: "NOTICE" });
+          bindNoticeAdminCreateButton("portal-archive-create-btn", { defaultBoardType: "ARCHIVE" });
           scrollToPortalSection();
         } catch (error) {
           console.error("Portal init failed:", error);
@@ -282,7 +335,7 @@
       });
 
       async function onNoticeAdminSaved() {
-        await loadPortalNotices(5);
+        await Promise.all([loadPortalNotices(5), loadPortalArchive(5)]);
       }
     </script>
   </body>

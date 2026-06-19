@@ -16,6 +16,10 @@
   object-fit: contain;
 }
 
+#branding-ci-mark {
+  flex-shrink: 0;
+}
+
 .branding-logo-box--preview {
   width: 4rem;
   height: 4rem;

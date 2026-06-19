@@ -7,9 +7,12 @@ import {
   buildPublicationMeta,
   filterAccidentRecordByVisibleColumns,
   normalizeVisibleColumnKeys,
+  normalizeVisibleTabKeys,
   resolveVisibleColumnKeys,
+  resolveVisibleTabKeys,
 } from "../utils/accident-detail-publication";
 import { ALL_ACCIDENT_DETAIL_COLUMN_KEYS } from "../constants/accident-detail-column-groups";
+import { ALL_ACCIDENT_DETAIL_TAB_IDS } from "../constants/accident-detail-ui-tabs";
 
 export class AccidentDetailPublicationService {
   constructor(
@@ -27,35 +30,46 @@ export class AccidentDetailPublicationService {
       this.publicationRepository.findAll(),
     ]);
 
-    const storedMap = new Map(stored.map((row) => [row.roleId, normalizeVisibleColumnKeys(row.visibleColumnKeys)]));
+    const storedMap = new Map(
+      stored.map((row) => [
+        row.roleId,
+        {
+          columns: normalizeVisibleColumnKeys(row.visibleColumnKeys),
+          tabs: normalizeVisibleTabKeys(row.visibleTabKeys),
+        },
+      ]),
+    );
 
     return {
       catalog: buildPublicationCatalog(),
       roles: roles.map((role) => {
-        const visibleColumnKeys = resolveVisibleColumnKeys(storedMap.get(role.id));
+        const storedEntry = storedMap.get(role.id);
+        const visibleColumnKeys = resolveVisibleColumnKeys(storedEntry?.columns);
+        const visibleTabKeys = resolveVisibleTabKeys(storedEntry?.tabs);
         return {
           roleId: role.id,
           roleName: role.name,
-          ...buildPublicationMeta(visibleColumnKeys),
+          ...buildPublicationMeta(visibleColumnKeys, visibleTabKeys),
         };
       }),
     };
   }
 
-  async updateRolePublication(roleId: number, visibleColumnKeys: string[]) {
+  async updateRolePublication(roleId: number, visibleColumnKeys: string[], visibleTabKeys: string[]) {
     const role = await this.roleRepository.findById(roleId);
     if (!role) {
       throw new HttpError(404, "Role not found.");
     }
 
     const allowed = new Set<string>(ALL_ACCIDENT_DETAIL_COLUMN_KEYS);
-    const filtered = visibleColumnKeys.filter((key) => allowed.has(key));
-    await this.publicationRepository.upsert(roleId, filtered);
+    const filteredColumns = visibleColumnKeys.filter((key) => allowed.has(key));
+    const filteredTabs = normalizeVisibleTabKeys(visibleTabKeys);
+    await this.publicationRepository.upsert(roleId, filteredColumns, filteredTabs);
 
     return {
       roleId: role.id,
       roleName: role.name,
-      ...buildPublicationMeta(filtered),
+      ...buildPublicationMeta(filteredColumns, resolveVisibleTabKeys(filteredTabs)),
     };
   }
 
@@ -67,13 +81,22 @@ export class AccidentDetailPublicationService {
     return resolveVisibleColumnKeys(normalizeVisibleColumnKeys(stored?.visibleColumnKeys));
   }
 
+  async getVisibleTabKeysForRole(roleId: number, role: string): Promise<string[]> {
+    if (role === ROLES.ADMIN) {
+      return [...ALL_ACCIDENT_DETAIL_TAB_IDS];
+    }
+    const stored = await this.publicationRepository.findByRoleId(roleId);
+    return resolveVisibleTabKeys(normalizeVisibleTabKeys(stored?.visibleTabKeys));
+  }
+
   async applyPublicationFilter<T extends Record<string, unknown>>(
     record: T,
     auth: { roleId: number; role: string },
   ): Promise<{ record: T; publication: ReturnType<typeof buildPublicationMeta> }> {
     const visibleColumnKeys = await this.getVisibleColumnKeysForRole(auth.roleId, auth.role);
+    const visibleTabKeys = await this.getVisibleTabKeysForRole(auth.roleId, auth.role);
     const visibleSet = new Set(visibleColumnKeys);
-    const publication = buildPublicationMeta(visibleColumnKeys);
+    const publication = buildPublicationMeta(visibleColumnKeys, visibleTabKeys);
 
     if (auth.role === ROLES.ADMIN) {
       return { record, publication };

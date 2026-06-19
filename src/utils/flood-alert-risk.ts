@@ -160,6 +160,32 @@ function getCurrentForWindow(current: SiteCurrentRainfall, key: RainfallWindowKe
   }
 }
 
+function formatRainfallMm(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return "-";
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+function buildThresholdComparison(
+  rainfallLeader: { key: RainfallWindowKey; ratio: number | null } | undefined,
+  input: { current: SiteCurrentRainfall; historical: SiteHistoricalRainfall },
+): string {
+  if (!rainfallLeader || rainfallLeader.ratio == null) {
+    return "침수이력 대비 강우 비교 불가";
+  }
+
+  const windowSpec = RAINFALL_WINDOWS.find((window) => window.key === rainfallLeader.key);
+  const minutesLabel = windowSpec?.shortLabel ?? "-";
+  const historicalValue = getHistoricalForWindow(input.historical, rainfallLeader.key);
+  const currentValue = getCurrentForWindow(input.current, rainfallLeader.key);
+
+  if (historicalValue == null || currentValue == null || historicalValue <= 0) {
+    return "침수이력 대비 강우 비교 불가";
+  }
+
+  return `침수이력(${formatRainfallMm(historicalValue)}mm) 대비 ${minutesLabel} 강우(${formatRainfallMm(currentValue)}mm) ${rainfallLeader.ratio}%`;
+}
+
 export function buildSiteFloodRiskAssessment(input: {
   current: SiteCurrentRainfall;
   historical: SiteHistoricalRainfall;
@@ -229,10 +255,10 @@ export function buildSiteFloodRiskAssessment(input: {
     dominantWindow = "drainage";
   }
 
-  const thresholdComparison =
-    thresholdRatio != null && thresholdWindowLabel
-      ? `침수이력 대비 ${thresholdWindowLabel} 강우 ${thresholdRatio}%`
-      : "침수이력 대비 강우 비교 불가";
+  const thresholdComparison = buildThresholdComparison(rainfallLeader, {
+    current: input.current,
+    historical: input.historical,
+  });
 
   const riskLevel = resolveFloodRiskLevel(riskScore);
 

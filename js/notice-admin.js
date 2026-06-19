@@ -220,7 +220,7 @@ async function deleteNoticeAdmin(noticeId, { redirectTo = null, boardType = "NOT
 
 function bindNoticeAdminCreateButton(buttonId, { defaultBoardType = "NOTICE" } = {}) {
   const btn = document.getElementById(buttonId);
-  if (!btn || !canCreateAnyBoardPost()) return;
+  if (!btn || !canBoardAction(defaultBoardType, "create")) return;
   btn.classList.remove("hidden");
   btn.addEventListener("click", () => openNoticeAdminModal(null, { defaultBoardType }));
 }

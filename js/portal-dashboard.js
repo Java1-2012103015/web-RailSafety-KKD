@@ -1,5 +1,8 @@
 const portalCharts = {};
 
+const CHART_COLOR_ACCIDENT = "#2563eb";
+const CHART_COLOR_DISRUPTION = "#9f1239";
+
 function formatDateTime(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
@@ -33,7 +36,8 @@ function showChartAccessDenied() {
 
 /** Y축 max = max(기본값, 데이터 최대값 + 5) — 상단 포인트가 잘리지 않도록 여유 확보 */
 function computeAxisMax(values, defaultMax) {
-  const dataMax = Math.max(0, ...values.map((value) => Number(value) || 0));
+  const numeric = values.filter((value) => value != null).map((value) => Number(value) || 0);
+  const dataMax = numeric.length ? Math.max(0, ...numeric) : 0;
   return Math.max(defaultMax, dataMax + 5);
 }
 
@@ -49,7 +53,7 @@ function formatAgencyBreakdown(byAgency) {
   return byAgency.map(({ agency, count }) => `  ${agency}: ${count}건`);
 }
 
-function buildScopedTooltipLines(rows, tooltipItems, { accessDenied = false } = {}) {
+function buildScopedTooltipLines(rows, tooltipItems, { accessDenied = false, loginRequired = false } = {}) {
   const index = tooltipItems[0]?.dataIndex;
   const row = rows[index];
   const lines = [];
@@ -62,9 +66,32 @@ function buildScopedTooltipLines(rows, tooltipItems, { accessDenied = false } = 
   lines.push(
     accessDenied
       ? "로그인 후 조회권한 기관별 데이터를 확인할 수 있습니다."
-      : "클릭하면 해당 연도 사고 목록으로 이동합니다.",
+      : loginRequired
+        ? "로그인 후 상세 목록을 확인할 수 있습니다."
+        : "클릭하면 해당 연도 사고 목록으로 이동합니다.",
   );
   return lines;
+}
+
+function getMonthlyDataCutoffMonth(currentYear) {
+  const now = new Date();
+  const calendarYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  if (currentYear < calendarYear) return 12;
+  if (currentYear > calendarYear) return 0;
+  // 당해 연도: 직전월까지만 표시 (당월은 집계 중)
+  return Math.max(0, currentMonth - 1);
+}
+
+/** 월별 누적 — 아직 도래하지 않은 달은 null (선·막대 미표시) */
+function buildCumulativeMonthly(monthlyRows, field, currentYear) {
+  const cutoffMonth = getMonthlyDataCutoffMonth(currentYear);
+  let sum = 0;
+  return monthlyRows.map((row) => {
+    if (row.month > cutoffMonth) return null;
+    sum += Number(row[field]) || 0;
+    return sum;
+  });
 }
 
 function buildMonthlyTooltipLines(rows, tooltipItems) {
@@ -79,6 +106,23 @@ function buildMonthlyTooltipLines(rows, tooltipItems) {
     ...formatAgencyBreakdown(byAgency),
     "",
     "클릭하면 해당 월 사고 목록으로 이동합니다.",
+  ];
+}
+
+function buildYearlyStatusTooltipLines(rows, tooltipItems, { isAccidentDataset, loginRequired = false } = {}) {
+  const item = tooltipItems[0];
+  const index = item?.dataIndex;
+  const row = rows[index];
+  const byAgency = isAccidentDataset ? row?.accidentsByAgency : row?.disruptionsByAgency;
+
+  return [
+    "",
+    "기관별 발생 건수",
+    ...formatAgencyBreakdown(byAgency),
+    "",
+    loginRequired
+      ? "로그인 후 상세 목록을 확인할 수 있습니다."
+      : "클릭하면 해당 월 사고 목록으로 이동합니다.",
   ];
 }
 
@@ -211,19 +255,19 @@ function renderMonthlyBarChart(rows, currentYear, options = {}) {
         },
         yAccident: {
           type: "linear",
-          position: "left",
+          position: "right",
           beginAtZero: true,
           max: accidentMax,
           ticks: { stepSize: computeAxisStepSize(accidentMax) },
+          grid: { drawOnChartArea: false },
           title: { display: true, text: "철도사고", color: "#253056", font: { size: 11 } },
         },
         yDisruption: {
           type: "linear",
-          position: "right",
+          position: "left",
           beginAtZero: true,
           max: disruptionMax,
           ticks: { stepSize: computeAxisStepSize(disruptionMax) },
-          grid: { drawOnChartArea: false },
           title: { display: true, text: "운행장애", color: "#dc2626", font: { size: 11 } },
         },
       },
@@ -245,13 +289,346 @@ function renderMonthlyBarChart(rows, currentYear, options = {}) {
   });
 }
 
+function shouldUseCombinedTrendCharts(isGuest) {
+  if (isGuest) return true;
+  const user = typeof getUser === "function" ? getUser() : null;
+  return user?.role !== "ADMIN";
+}
+
+function shouldShowScopedChartSeries(isGuest) {
+  return shouldUseCombinedTrendCharts(isGuest) && !isGuest;
+}
+
+function applyCombinedTrendLayout(useCombined) {
+  const combinedSection = document.getElementById("portal-combined-trends-section");
+  if (combinedSection) {
+    combinedSection.classList.toggle("hidden", !useCombined);
+  }
+
+  const yearlyStatusSection = document.getElementById("portal-yearly-status-section");
+  if (yearlyStatusSection) {
+    yearlyStatusSection.classList.toggle("hidden", !useCombined);
+  }
+
+  const legacyMonthlySection = document.getElementById("portal-monthly-legacy-section");
+  if (legacyMonthlySection) {
+    legacyMonthlySection.classList.toggle("hidden", useCombined);
+  }
+
+  document.querySelectorAll(".portal-dashboard-accident-split, .portal-dashboard-disruption-split").forEach((el) => {
+    el.classList.toggle("hidden", useCombined);
+  });
+
+  const grid = document.getElementById("portal-dashboard-charts-grid");
+  if (grid) {
+    grid.classList.toggle("hidden", useCombined);
+  }
+
+  if (!useCombined) {
+    destroyPortalChart("combinedAccidents");
+    destroyPortalChart("combinedDisruptions");
+    destroyPortalChart("yearlyCombinedStatus");
+  }
+}
+
+function renderCombinedTrendChart({
+  canvasId,
+  chartKey,
+  allRows,
+  scopedRows,
+  axisDefaultMax,
+  scopedDashboardChart,
+  showScoped = true,
+}) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  destroyPortalChart(chartKey);
+  canvas.style.cursor = "pointer";
+
+  const labels = allRows.map((row) => `${row.year}년`);
+  const allCounts = allRows.map((row) => row.count);
+  const scopedCounts = scopedRows.map((row) => row.count);
+  const yMax = computeAxisMax(
+    showScoped ? [...allCounts, ...scopedCounts] : allCounts,
+    axisDefaultMax,
+  );
+
+  const datasets = [
+    {
+      label: "전체기관",
+      data: allCounts,
+      borderColor: "#2563eb",
+      backgroundColor: "#2563eb33",
+      tension: 0.25,
+      fill: false,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+    },
+  ];
+
+  if (showScoped) {
+    datasets.push({
+      label: "조회권한 기관",
+      data: scopedCounts,
+      borderColor: "#dc2626",
+      backgroundColor: "#dc262633",
+      tension: 0.25,
+      fill: false,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+    });
+  }
+
+  portalCharts[chartKey] = new Chart(canvas, {
+    type: "line",
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "bottom" },
+        tooltip: {
+          callbacks: {
+            afterBody: (tooltipItems) => {
+              const item = tooltipItems[0];
+              if (!item) return [];
+              const datasetIndex = item.datasetIndex;
+              const rows = datasetIndex === 0 ? allRows : scopedRows;
+              const accessDenied = showScoped && datasetIndex === 0;
+              return buildScopedTooltipLines(rows, tooltipItems, {
+                accessDenied,
+                loginRequired: !showScoped,
+              });
+            },
+          },
+        },
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: yMax,
+          ticks: { stepSize: computeAxisStepSize(yMax) },
+        },
+      },
+      onClick: (_event, elements) => {
+        if (!elements.length) return;
+        const { index, datasetIndex } = elements[0];
+        const year = allRows[index]?.year;
+        if (!year) return;
+
+        if (!showScoped || datasetIndex === 0) {
+          showChartAccessDenied();
+          return;
+        }
+
+        navigateToScopedAccidentSearch({ year, dashboardChart: scopedDashboardChart });
+      },
+    },
+  });
+}
+
+function renderYearlyCombinedStatusChart(allRows, scopedRows, currentYear, { showScoped = true } = {}) {
+  const canvas = document.getElementById("chart-yearly-combined-status");
+  if (!canvas) return;
+
+  destroyPortalChart("yearlyCombinedStatus");
+  canvas.style.cursor = "pointer";
+
+  const labels = allRows.map((row) => `${row.month}월`);
+  const allAccidentCumulative = buildCumulativeMonthly(allRows, "accidents", currentYear);
+  const allDisruptionCumulative = buildCumulativeMonthly(allRows, "disruptions", currentYear);
+  const scopedAccidentCumulative = buildCumulativeMonthly(scopedRows, "accidents", currentYear);
+  const scopedDisruptionCumulative = buildCumulativeMonthly(scopedRows, "disruptions", currentYear);
+
+  const accidentMax = computeAxisMax(
+    showScoped ? [...allAccidentCumulative, ...scopedAccidentCumulative] : allAccidentCumulative,
+    10,
+  );
+  const disruptionMax = computeAxisMax(
+    showScoped ? [...allDisruptionCumulative, ...scopedDisruptionCumulative] : allDisruptionCumulative,
+    20,
+  );
+
+  const datasets = [
+    {
+      type: "line",
+      label: "전체기관 철도사고",
+      data: allAccidentCumulative,
+      borderColor: CHART_COLOR_ACCIDENT,
+      backgroundColor: `${CHART_COLOR_ACCIDENT}33`,
+      tension: 0.25,
+      fill: false,
+      spanGaps: false,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      yAxisID: "yAccident",
+      order: 0,
+    },
+    {
+      type: "line",
+      label: "전체기관 운행장애",
+      data: allDisruptionCumulative,
+      borderColor: CHART_COLOR_DISRUPTION,
+      backgroundColor: `${CHART_COLOR_DISRUPTION}33`,
+      tension: 0.25,
+      fill: false,
+      spanGaps: false,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      yAxisID: "yDisruption",
+      order: 0,
+    },
+  ];
+
+  if (showScoped) {
+    datasets.push(
+      {
+        type: "bar",
+        label: "조회권한 기관 철도사고",
+        data: scopedAccidentCumulative,
+        backgroundColor: `${CHART_COLOR_ACCIDENT}99`,
+        borderColor: CHART_COLOR_ACCIDENT,
+        borderWidth: 1,
+        borderRadius: 4,
+        yAxisID: "yAccident",
+        order: 1,
+      },
+      {
+        type: "bar",
+        label: "조회권한 기관 운행장애",
+        data: scopedDisruptionCumulative,
+        backgroundColor: `${CHART_COLOR_DISRUPTION}99`,
+        borderColor: CHART_COLOR_DISRUPTION,
+        borderWidth: 1,
+        borderRadius: 4,
+        yAxisID: "yDisruption",
+        order: 1,
+      },
+    );
+  }
+
+  portalCharts.yearlyCombinedStatus = new Chart(canvas, {
+    type: "bar",
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "bottom" },
+        tooltip: {
+          callbacks: {
+            afterBody: (tooltipItems) => {
+              const item = tooltipItems[0];
+              if (!item) return [];
+              const datasetIndex = item.datasetIndex;
+              const isAccidentDataset = datasetIndex === 0 || (showScoped && datasetIndex === 2);
+
+              if (!showScoped || datasetIndex === 0 || datasetIndex === 1) {
+                if (!showScoped) {
+                  return buildYearlyStatusTooltipLines(allRows, tooltipItems, {
+                    isAccidentDataset,
+                    loginRequired: true,
+                  });
+                }
+                return ["", "로그인 후 조회권한 기관별 데이터를 확인할 수 있습니다."];
+              }
+
+              return buildYearlyStatusTooltipLines(scopedRows, tooltipItems, { isAccidentDataset });
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+        },
+        yAccident: {
+          type: "linear",
+          position: "right",
+          beginAtZero: true,
+          max: accidentMax,
+          ticks: { stepSize: computeAxisStepSize(accidentMax) },
+          grid: { drawOnChartArea: false },
+          title: { display: true, text: "철도사고 (누적)", color: CHART_COLOR_ACCIDENT, font: { size: 11 } },
+        },
+        yDisruption: {
+          type: "linear",
+          position: "left",
+          beginAtZero: true,
+          max: disruptionMax,
+          ticks: { stepSize: computeAxisStepSize(disruptionMax) },
+          title: { display: true, text: "운행장애 (누적)", color: CHART_COLOR_DISRUPTION, font: { size: 11 } },
+        },
+      },
+      onClick: (_event, elements) => {
+        if (!elements.length || !currentYear) return;
+        const { index, datasetIndex } = elements[0];
+
+        if (!showScoped || datasetIndex === 0 || datasetIndex === 1) {
+          showChartAccessDenied();
+          return;
+        }
+
+        const month = scopedRows[index]?.month;
+        if (!month) return;
+        const dashboardChart = datasetIndex === 2 ? "scoped-accidents" : "scoped-disruptions";
+        navigateToScopedAccidentSearch({ year: currentYear, month, dashboardChart });
+      },
+    },
+  });
+}
+
+function renderQueryScopeSection(summary, isGuest) {
+  const section = document.getElementById("portal-query-scope-section");
+  const roleEl = document.getElementById("portal-query-scope-role");
+  const metaEl = document.getElementById("portal-query-scope-meta");
+
+  if (!section) return;
+
+  if (isGuest || !summary) {
+    section.classList.add("hidden");
+    return;
+  }
+
+  section.classList.remove("hidden");
+
+  if (roleEl) {
+    roleEl.textContent = `${summary.roleName} 권한으로 설정된 범위의 데이터를 조회할 수 있습니다.`;
+  }
+
+  if (metaEl) {
+    const metaParts = [];
+    const { min, max } = summary.dateRange ?? {};
+    if (min || max) {
+      metaParts.push(`조회 기간: ${min ?? "제한 없음"} ~ ${max ?? "제한 없음"}`);
+    }
+    if (summary.allowedTypes?.length) {
+      metaParts.push(`허용 유형: ${summary.allowedTypes.join(", ")}`);
+    }
+    if (summary.enforcedLineName) {
+      metaParts.push(`지정 노선: ${summary.enforcedLineName}`);
+    } else if (summary.allowedLineNames?.length) {
+      metaParts.push(`조회 노선: ${summary.allowedLineNames.join(", ")}`);
+    }
+    metaEl.innerHTML = metaParts.length
+      ? metaParts.map((line) => `<p>${line}</p>`).join("")
+      : "";
+  }
+}
+
 function applyGuestPortalDashboardLayout(isGuest, options = {}) {
   const showScoped = Boolean(options.showScopedCharts);
   const hideScoped = isGuest && !showScoped;
+  const useCombined = shouldUseCombinedTrendCharts(isGuest);
 
-  document.querySelectorAll(".portal-dashboard-scoped").forEach((el) => {
-    el.classList.toggle("hidden", hideScoped);
-  });
+  applyCombinedTrendLayout(useCombined);
+
+  if (!useCombined) {
+    document.querySelectorAll(".portal-dashboard-scoped").forEach((el) => {
+      el.classList.toggle("hidden", hideScoped);
+    });
+  }
 
   const privateSection = document.getElementById("portal-dashboard-private-section");
   if (privateSection) {
@@ -259,7 +636,7 @@ function applyGuestPortalDashboardLayout(isGuest, options = {}) {
   }
 
   const grid = document.getElementById("portal-dashboard-charts-grid");
-  if (grid) {
+  if (grid && !useCombined) {
     const twoCols = !isGuest || showScoped;
     grid.classList.toggle("lg:grid-cols-2", twoCols);
     grid.classList.toggle("lg:grid-cols-1", !twoCols);
@@ -275,9 +652,11 @@ async function refreshPortalDashboard(options = {}) {
     const result = isGuest
       ? await apiFetch("/api/public/dashboard/portal-stats")
       : await apiFetch("/api/dashboard/stats", { auth: true });
-    const { all, scoped, updatedAt, currentYear, monthComparison } = result.data;
+    const { all, scoped, updatedAt, currentYear, yearStatusSummary, queryScopeSummary } = result.data;
 
-    renderMonthComparisonPanels(monthComparison, {
+    renderQueryScopeSection(queryScopeSummary, isGuest);
+
+    renderYearStatusPanels(yearStatusSummary, {
       scopeLabel: isGuest ? null : "조회권한 기관",
     });
 
@@ -290,59 +669,99 @@ async function refreshPortalDashboard(options = {}) {
       monthlyTitle.textContent = `${currentYear}년 철도사고·장애 발생현황 (${scopeLabel})`;
     }
 
-    renderLineChart(
-      "chart-all-accidents",
-      "allAccidents",
-      "철도사고",
-      all.recent5Accidents,
-      "#253056",
-      { clickable: !isGuest, accessDenied: true, axisDefaultMax: 10 },
-    );
-    renderLineChart(
-      "chart-scoped-accidents",
-      "scopedAccidents",
-      "철도사고",
-      scoped.recent5Accidents,
-      "#2e3a67",
-      {
-        clickable: !isGuest,
-        dashboardChart: isGuest ? null : "scoped-accidents",
-        accessDenied: isGuest && showScopedCharts,
+    const useCombinedTrend = shouldUseCombinedTrendCharts(isGuest);
+    const showScopedSeries = shouldShowScopedChartSeries(isGuest);
+
+    if (useCombinedTrend) {
+      const yearlyStatusTitle = document.getElementById("chart-yearly-status-title");
+      if (yearlyStatusTitle) {
+        yearlyStatusTitle.textContent = `${currentYear}년 철도사고, 장애 발생현황`;
+      }
+
+      renderCombinedTrendChart({
+        canvasId: "chart-combined-accidents",
+        chartKey: "combinedAccidents",
+        allRows: all.recent5Accidents,
+        scopedRows: scoped.recent5Accidents,
         axisDefaultMax: 10,
-      },
-    );
-    renderLineChart(
-      "chart-all-disruptions",
-      "allDisruptions",
-      "운행장애",
-      all.recent5Disruptions,
-      "#dc2626",
-      { clickable: !isGuest, accessDenied: true, axisDefaultMax: 20 },
-    );
-    renderLineChart(
-      "chart-scoped-disruptions",
-      "scopedDisruptions",
-      "운행장애",
-      scoped.recent5Disruptions,
-      "#ea580c",
-      {
-        clickable: !isGuest,
-        dashboardChart: isGuest ? null : "scoped-disruptions",
-        accessDenied: isGuest && showScopedCharts,
+        scopedDashboardChart: "scoped-accidents",
+        showScoped: showScopedSeries,
+      });
+      renderCombinedTrendChart({
+        canvasId: "chart-combined-disruptions",
+        chartKey: "combinedDisruptions",
+        allRows: all.recent5Disruptions,
+        scopedRows: scoped.recent5Disruptions,
         axisDefaultMax: 20,
-      },
-    );
-    renderMonthlyBarChart(scoped.monthlyCurrentYear, currentYear, {
-      clickable: !isGuest,
-      accessDenied: isGuest && showScopedCharts,
-    });
+        scopedDashboardChart: "scoped-disruptions",
+        showScoped: showScopedSeries,
+      });
+      renderYearlyCombinedStatusChart(
+        all.monthlyCurrentYear ?? scoped.monthlyCurrentYear,
+        scoped.monthlyCurrentYear,
+        currentYear,
+        { showScoped: showScopedSeries },
+      );
+    } else {
+      renderLineChart(
+        "chart-all-accidents",
+        "allAccidents",
+        "철도사고",
+        all.recent5Accidents,
+        "#253056",
+        { clickable: !isGuest, accessDenied: true, axisDefaultMax: 10 },
+      );
+      renderLineChart(
+        "chart-scoped-accidents",
+        "scopedAccidents",
+        "철도사고",
+        scoped.recent5Accidents,
+        "#2e3a67",
+        {
+          clickable: !isGuest,
+          dashboardChart: isGuest ? null : "scoped-accidents",
+          accessDenied: isGuest && showScopedCharts,
+          axisDefaultMax: 10,
+        },
+      );
+      renderLineChart(
+        "chart-all-disruptions",
+        "allDisruptions",
+        "운행장애",
+        all.recent5Disruptions,
+        "#dc2626",
+        { clickable: !isGuest, accessDenied: true, axisDefaultMax: 20 },
+      );
+      renderLineChart(
+        "chart-scoped-disruptions",
+        "scopedDisruptions",
+        "운행장애",
+        scoped.recent5Disruptions,
+        "#ea580c",
+        {
+          clickable: !isGuest,
+          dashboardChart: isGuest ? null : "scoped-disruptions",
+          accessDenied: isGuest && showScopedCharts,
+          axisDefaultMax: 20,
+        },
+      );
+    }
+
+    if (!useCombinedTrend) {
+      renderMonthlyBarChart(scoped.monthlyCurrentYear, currentYear, {
+        clickable: !isGuest,
+        accessDenied: isGuest && showScopedCharts,
+      });
+    }
   } finally {
     setPortalDashboardLoading(false);
   }
 }
 
 function initPortalDashboard(options = {}) {
-  if (!document.getElementById("chart-all-accidents")) return;
+  const hasCombinedCharts = document.getElementById("chart-combined-accidents");
+  const hasLegacyCharts = document.getElementById("chart-all-accidents");
+  if (!hasCombinedCharts && !hasLegacyCharts) return;
 
   refreshPortalDashboard(options).catch((error) => {
     console.error("Portal dashboard load failed:", error);

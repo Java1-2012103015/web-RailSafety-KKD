@@ -155,7 +155,7 @@ async function refreshDashboard() {
   try {
     const result = await apiFetch("/api/public/dashboard/stats");
     renderSummary(result.data.summary);
-    renderMonthComparisonPanels(result.data.monthComparison);
+    renderYearStatusPanels(result.data.yearStatusSummary);
     renderCharts(result.data);
   } finally {
     setPublicDashboardLoading(false);

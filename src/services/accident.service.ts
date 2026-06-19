@@ -13,6 +13,7 @@ import { PermissionRepository } from "../repositories/permission.repository";
 import type { AccidentDetailPublicationService } from "./accident-detail-publication.service";
 import { buildPublicationMeta } from "../utils/accident-detail-publication";
 import { ALL_ACCIDENT_DETAIL_COLUMN_KEYS } from "../constants/accident-detail-column-groups";
+import { ALL_ACCIDENT_DETAIL_TAB_IDS } from "../constants/accident-detail-ui-tabs";
 import { parseQueryEndDate, parseQueryStartDate } from "../utils/query-date";
 
 interface GetAccidentsInput {
@@ -356,7 +357,7 @@ export class AccidentService {
 
     return {
       accident,
-      publication: buildPublicationMeta([...ALL_ACCIDENT_DETAIL_COLUMN_KEYS]),
+      publication: buildPublicationMeta([...ALL_ACCIDENT_DETAIL_COLUMN_KEYS], [...ALL_ACCIDENT_DETAIL_TAB_IDS]),
     };
   }
 

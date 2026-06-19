@@ -90,12 +90,6 @@
             철도안전정보종합관리시스템
           </h1>
         </a>
-        <a
-          href="/login"
-          class="rounded bg-white px-4 py-2 text-sm font-semibold text-navy-900 transition hover:bg-gray-100"
-        >
-          로그인
-        </a>
       </div>
     </header>
 
@@ -110,7 +104,6 @@
                 <p class="mt-1 text-sm text-gray-600">철도시설 종합 침수위험도 모니터링</p>
               </div>
               <div class="flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                <a href="/login" class="text-sm text-navy-700 hover:underline whitespace-nowrap">로그인 · 침수경보 DB</a>
                 <span class="inline-flex items-center gap-1.5 text-gray-500" title="15분 주기 자동 갱신">
                   <span
                     id="pfa-auto-refresh-spinner"
@@ -199,12 +192,16 @@
       </div>
     </main>
 
-    <footer class="mt-8 bg-gray-200" data-branding-wrap="footer">
-      <div class="mx-auto max-w-7xl px-4 py-5 text-xs text-gray-700 sm:px-6 lg:px-8">
-        <p>서울특별시 중구 세종대로 110 | 대표번호 02-1234-5678</p>
-        <p class="mt-1 text-gray-600">Copyright (c) Rail Safety Information System. All rights reserved.</p>
+    <div class="border-t border-gray-200 bg-gray-100 px-4 py-10 sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-7xl text-left">
+        <a
+          href="/login"
+          class="text-sm text-gray-700 no-underline transition hover:underline underline-offset-4"
+        >
+          지자체 안전정보
+        </a>
       </div>
-    </footer>
+    </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="/js/api.js"></script>

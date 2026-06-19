@@ -3,10 +3,20 @@ import {
   ALL_ACCIDENT_DETAIL_COLUMN_KEYS,
   getApprovedGroupTitles,
 } from "../constants/accident-detail-column-groups";
+import {
+  ACCIDENT_DETAIL_UI_TABS,
+  ALL_ACCIDENT_DETAIL_TAB_IDS,
+} from "../constants/accident-detail-ui-tabs";
 
 export function normalizeVisibleColumnKeys(keys: unknown): string[] {
   if (!Array.isArray(keys)) return [];
   return keys.filter((key): key is string => typeof key === "string" && key.length > 0);
+}
+
+export function normalizeVisibleTabKeys(keys: unknown): string[] {
+  if (!Array.isArray(keys)) return [];
+  const allowed = new Set<string>(ALL_ACCIDENT_DETAIL_TAB_IDS);
+  return keys.filter((key): key is string => typeof key === "string" && allowed.has(key));
 }
 
 export function resolveVisibleColumnKeys(stored: string[] | null | undefined): string[] {
@@ -15,17 +25,26 @@ export function resolveVisibleColumnKeys(stored: string[] | null | undefined): s
   return [...ALL_ACCIDENT_DETAIL_COLUMN_KEYS];
 }
 
+export function resolveVisibleTabKeys(stored: string[] | null | undefined): string[] {
+  const normalized = normalizeVisibleTabKeys(stored);
+  if (normalized.length > 0) return normalized;
+  return [...ALL_ACCIDENT_DETAIL_TAB_IDS];
+}
+
 export function buildPublicationCatalog() {
   return {
     groups: ACCIDENT_DETAIL_COLUMN_GROUPS,
     allColumnKeys: ALL_ACCIDENT_DETAIL_COLUMN_KEYS,
+    tabs: ACCIDENT_DETAIL_UI_TABS.map((tab) => ({ id: tab.id, title: tab.title })),
+    allTabIds: [...ALL_ACCIDENT_DETAIL_TAB_IDS],
   };
 }
 
-export function buildPublicationMeta(visibleColumnKeys: string[]) {
+export function buildPublicationMeta(visibleColumnKeys: string[], visibleTabKeys: string[]) {
   const set = new Set(visibleColumnKeys);
   return {
     visibleColumnKeys,
+    visibleTabKeys,
     approvedGroupTitles: getApprovedGroupTitles(set),
     groups: ACCIDENT_DETAIL_COLUMN_GROUPS.map((group) => ({
       id: group.id,
@@ -33,6 +52,11 @@ export function buildPublicationMeta(visibleColumnKeys: string[]) {
       keys: [...group.keys],
       visibleCount: group.keys.filter((key) => set.has(key)).length,
       totalCount: group.keys.length,
+    })),
+    tabs: ACCIDENT_DETAIL_UI_TABS.map((tab) => ({
+      id: tab.id,
+      title: tab.title,
+      visible: visibleTabKeys.includes(tab.id),
     })),
   };
 }

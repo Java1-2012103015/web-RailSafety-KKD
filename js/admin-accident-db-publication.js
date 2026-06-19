@@ -3,9 +3,17 @@ let adbPubState = {
   catalog: null,
   selectedRoleId: null,
   visibleKeys: new Set(),
+  visibleTabKeys: new Set(),
   activeGroupId: null,
 };
 let adbPubSaveBound = false;
+
+const ADBPUB_DEFAULT_TAB_IDS = ["basic", "extra", "site", "review"];
+
+function adbPubResolveTabKeys(keys) {
+  if (Array.isArray(keys) && keys.length > 0) return keys;
+  return [...ADBPUB_DEFAULT_TAB_IDS];
+}
 
 function adbPubColumnMap() {
   const map = new Map();
@@ -17,6 +25,37 @@ function adbPubColumnMap() {
 
 function adbPubGetSelectedRole() {
   return adbPubState.roles.find((role) => role.roleId === adbPubState.selectedRoleId) ?? null;
+}
+
+function renderTabToggles() {
+  const wrap = document.getElementById("adbpub-tab-toggles");
+  if (!wrap) return;
+
+  const tabs = adbPubState.catalog?.tabs ?? ADBPUB_DEFAULT_TAB_IDS.map((id) => ({
+    id,
+    title: { basic: "기본정보", extra: "추가정보", site: "현장상황", review: "보완검토" }[id] ?? id,
+  }));
+
+  wrap.innerHTML = tabs
+    .map((tab) => {
+      const checked = adbPubState.visibleTabKeys.has(tab.id);
+      return `
+        <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-800 cursor-pointer">
+          <input type="checkbox" class="adbpub-tab-check rounded border-gray-300" data-tab-id="${tab.id}" ${checked ? "checked" : ""} />
+          ${tab.title}
+        </label>
+      `;
+    })
+    .join("");
+
+  wrap.querySelectorAll(".adbpub-tab-check").forEach((input) => {
+    input.addEventListener("change", () => {
+      const tabId = input.getAttribute("data-tab-id");
+      if (!tabId) return;
+      if (input.checked) adbPubState.visibleTabKeys.add(tabId);
+      else adbPubState.visibleTabKeys.delete(tabId);
+    });
+  });
 }
 
 function renderApprovedGroups() {
@@ -33,12 +72,18 @@ function renderApprovedGroups() {
     .filter((group) => group.keys.some((key) => adbPubState.visibleKeys.has(key)))
     .map((group) => group.title);
 
-  if (!approved.length) {
-    wrap.innerHTML = '<span class="text-amber-700 text-sm">승인된 컬럼 없음</span>';
+  const tabLabels = (adbPubState.catalog?.tabs ?? [])
+    .filter((tab) => adbPubState.visibleTabKeys.has(tab.id))
+    .map((tab) => `${tab.title} 탭`);
+
+  const chips = [...tabLabels, ...approved];
+
+  if (!chips.length) {
+    wrap.innerHTML = '<span class="text-amber-700 text-sm">승인된 탭·컬럼 없음</span>';
     return;
   }
 
-  wrap.innerHTML = approved
+  wrap.innerHTML = chips
     .map(
       (title) =>
         `<span class="inline-flex items-center rounded-full border border-navy-700/30 bg-navy-900/5 px-2.5 py-0.5 text-xs font-semibold text-navy-900">${title}</span>`,
@@ -158,6 +203,8 @@ function bindRoleSelect() {
     const role = adbPubState.roles.find((r) => r.roleId === roleId);
     adbPubState.selectedRoleId = roleId;
     adbPubState.visibleKeys = new Set(role?.visibleColumnKeys ?? []);
+    adbPubState.visibleTabKeys = new Set(adbPubResolveTabKeys(role?.visibleTabKeys));
+    renderTabToggles();
     renderApprovedGroups();
     renderGroupTabs();
     renderGroupPanel();
@@ -176,7 +223,10 @@ async function savePublication() {
     const res = await apiFetch(`/api/admin/accident-db-publication/${adbPubState.selectedRoleId}`, {
       auth: true,
       method: "PUT",
-      body: { visibleColumnKeys: Array.from(adbPubState.visibleKeys) },
+      body: {
+        visibleColumnKeys: Array.from(adbPubState.visibleKeys),
+        visibleTabKeys: Array.from(adbPubState.visibleTabKeys),
+      },
     });
 
     const idx = adbPubState.roles.findIndex((r) => r.roleId === adbPubState.selectedRoleId);
@@ -185,10 +235,13 @@ async function savePublication() {
         ...adbPubState.roles[idx],
         ...res.data,
         visibleColumnKeys: res.data.visibleColumnKeys,
+        visibleTabKeys: res.data.visibleTabKeys,
       };
     }
 
     adbPubState.visibleKeys = new Set(res.data.visibleColumnKeys ?? []);
+    adbPubState.visibleTabKeys = new Set(adbPubResolveTabKeys(res.data.visibleTabKeys));
+    renderTabToggles();
     renderApprovedGroups();
     renderGroupTabs();
     renderGroupPanel();
@@ -196,6 +249,9 @@ async function savePublication() {
     if (status) {
       status.textContent = "저장되었습니다.";
       status.className = "text-xs font-semibold text-emerald-700";
+    }
+    if (typeof invalidateRolePublicationCache === "function") {
+      invalidateRolePublicationCache();
     }
   } catch (error) {
     if (status) {
@@ -245,9 +301,11 @@ async function loadAccidentDbPublicationTab() {
   adbPubState.roles = res.data.roles ?? [];
   adbPubState.selectedRoleId = adbPubState.roles[0]?.roleId ?? null;
   adbPubState.visibleKeys = new Set(adbPubGetSelectedRole()?.visibleColumnKeys ?? []);
+  adbPubState.visibleTabKeys = new Set(adbPubResolveTabKeys(adbPubGetSelectedRole()?.visibleTabKeys));
   adbPubState.activeGroupId = adbPubState.catalog?.groups?.[0]?.id ?? null;
 
   bindRoleSelect();
+  renderTabToggles();
   renderApprovedGroups();
   renderGroupTabs();
   renderGroupPanel();

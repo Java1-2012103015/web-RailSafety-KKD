@@ -230,6 +230,16 @@ export const ACCIDENT_DETAIL_COLUMN_GROUPS = [
     title: "시스템·등록",
     keys: ["accidentNumberBackup", "registeredBy", "savedAtText"],
   },
+  {
+    id: "review",
+    title: "보완검토",
+    keys: [
+      "supplementRequestStatus",
+      "supplementRequestDetail",
+      "supplementResultStatus",
+      "supplementResultDetail",
+    ],
+  },
 ] as const;
 
 export const ALL_ACCIDENT_DETAIL_COLUMN_KEYS = ACCIDENT_DETAIL_COLUMN_GROUPS.flatMap((g) => g.keys);

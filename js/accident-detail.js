@@ -1,33 +1,3 @@
-const TYPE_LABELS = {
-  COLLISION: "충돌",
-  DERAILMENT: "탈선",
-  FIRE: "화재",
-  SIGNAL_FAILURE: "신호장애",
-  HUMAN_ERROR: "인적오류",
-  TRACK_DEFECT: "궤도결함",
-  OTHER: "기타",
-};
-
-const TYPE_DETAIL = {
-  COLLISION: "신호위반",
-  DERAILMENT: "차량고장",
-  FIRE: "화재",
-  SIGNAL_FAILURE: "신호장애",
-  HUMAN_ERROR: "직원(사상)",
-  TRACK_DEFECT: "궤도결함",
-  OTHER: "기타",
-};
-
-const CATEGORY_BY_TYPE = {
-  COLLISION: "사고",
-  DERAILMENT: "사고",
-  FIRE: "사고",
-  SIGNAL_FAILURE: "지연",
-  HUMAN_ERROR: "준사고",
-  TRACK_DEFECT: "관리사고",
-  OTHER: "준사고",
-};
-
 /** WEEKDAYS, pad2 — accident-db-columns.js (선행 로드) */
 
 function setValue(id, value) {
@@ -36,36 +6,30 @@ function setValue(id, value) {
   el.value = value ?? "";
 }
 
+function readFlatRow(row) {
+  if (typeof flattenAccidentRecord !== "function" || typeof normalizeAccidentRecord !== "function") {
+    return { ...(row ?? {}), ...(row?.detail ?? {}) };
+  }
+  return normalizeAccidentRecord(flattenAccidentRecord(row));
+}
+
+function textOrEmpty(value) {
+  if (value === null || value === undefined) return "";
+  const text = String(value).trim();
+  return text;
+}
+
 function formatSerial(row) {
+  const flat = readFlatRow(row);
+  if (flat.accidentNumber) return String(flat.accidentNumber);
   const d = new Date(row.accidentAt);
+  if (Number.isNaN(d.getTime())) return String(row.id ?? "");
   return `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}${String(row.id).padStart(3, "0")}`;
-}
-
-function resolveAgency(lineName) {
-  if (!lineName) return "철도공사";
-  if (lineName.includes("8호선") || lineName.includes("도시")) return "서울교통공사";
-  if (lineName.includes("공항")) return "공항철도";
-  return "한국철도공사";
-}
-
-function resolveRailType(lineName) {
-  if (lineName?.includes("고속")) return "고속철도";
-  if (lineName?.includes("호선") || lineName?.includes("도시")) return "도시철도";
-  return "일반철도";
-}
-
-function resolveInvestigation(id) {
-  return ["최초", "중간", "최종"][id % 3];
-}
-
-function resolveDamageAmount(row) {
-  const base = (row.deaths * 120 + row.injuries * 15 + row.id * 7) % 900;
-  return (base === 0 ? 0 : base).toFixed(3);
 }
 
 function splitCasualties(row) {
   const deaths = row.deaths ?? 0;
-  const injuries = row.injuries ?? 0;
+  const injuries = row.injuries ?? row.seriousInjuries ?? 0;
   const passDeath = row.accidentType === "HUMAN_ERROR" ? 0 : Math.min(deaths, 1);
   const staffDeath = deaths - passDeath;
   const passSerious = Math.ceil(injuries * 0.6);
@@ -73,98 +37,220 @@ function splitCasualties(row) {
   return { passDeath, staffDeath, passSerious, staffSerious: Math.max(0, staffSerious) };
 }
 
-function buildOverview(row) {
-  const d = new Date(row.accidentAt);
-  const day = WEEKDAYS[d.getDay()];
-  const weather = row.weather ?? "맑음";
-  const typeLabel = TYPE_DETAIL[row.accidentType] ?? TYPE_LABELS[row.accidentType];
-  const casualty =
-    row.deaths + row.injuries > 0
-      ? `사망 ${row.deaths}명, 부상 ${row.injuries}명`
-      : "없음";
-
-  return [
-    "1. 개요",
-    `· 일시: ${d.getFullYear()}. ${pad2(d.getMonth() + 1)}. ${pad2(d.getDate())}. (${day}) ${pad2(d.getHours())}:${pad2(d.getMinutes())}경 (날씨: ${weather})`,
-    `· 장소: ${row.lineName} ${row.location}`,
-    `· 내용: ${typeLabel} - ${row.cause}`,
-    `· 인적피해(피해내역): ${casualty}`,
-    "· 인접 및 언론보도: 없음",
-  ].join("\n");
+function populateColFields(flat) {
+  if (typeof setColInputs !== "function") return;
+  const keys = new Set(
+    Array.from(document.querySelectorAll("[data-col-key]")).map((el) => el.dataset.colKey).filter(Boolean),
+  );
+  keys.forEach((key) => {
+    const value = flat[key];
+    setColInputs(key, value === null || value === undefined ? "" : String(value));
+  });
 }
 
-function buildPrevention(row) {
-  return [
-    "4. 예방대책",
-    "· 선로전환기 진로 표시에 우선하여 신호기(진로개통표시기 포함) 설치상태 확인 철저",
-    "· 모터카 운행 시 지적, 확인, 환호 절차 준수 철저",
-    "· 동종사고 장애 예방 교육 철저",
-    `· (${row.lineName}) 구간 정기 점검 강화`,
-  ].join("\n");
+function sumNums(...values) {
+  return values.reduce((sum, value) => sum + (Number(value) || 0), 0);
 }
 
-function populateDetail(row) {
-  const detail = row.detail ?? {};
-  const d = new Date(row.accidentAt);
-  const agency = detail.registrationAgency?.trim() || "-";
-  const category = detail.accidentKind && typeof classifyAccidentKind === "function"
-    ? classifyAccidentKind(detail.accidentKind) ?? "사고"
-    : CATEGORY_BY_TYPE[row.accidentType] ?? "사고";
-  const typeDetail =
-    detail.railwayAccidentKind?.trim() || TYPE_DETAIL[row.accidentType] || TYPE_LABELS[row.accidentType];
-  const casualties = splitCasualties(row);
-  const damage = resolveDamageAmount(row);
+function splitMinutesToHourMin(totalMinutes) {
+  const n = Number(totalMinutes);
+  if (!Number.isFinite(n) || n < 0) return { hour: "00", min: "00" };
+  return { hour: pad2(Math.floor(n / 60)), min: pad2(n % 60) };
+}
 
-  setValue("f-serial", detail.accidentNumber?.trim() || formatSerial(row));
-  setValue("f-agency", agency);
-  setValue("f-related-agency", "-");
-  setValue("f-registration", detail.registrationStatus?.trim() || "-");
-  setValue("f-rail-type", detail.railwayDivision?.trim() || resolveRailType(row.lineName));
-  setValue("f-near-type", category === "준사고" ? `3 ${typeDetail}` : typeDetail);
-  setValue("f-investigation", detail.investigationStatus?.trim() || "-");
-  setValue("f-cause-1", row.cause ?? "");
-  setValue("f-cause-2", `인적요인 · ${row.cause ?? "미상"}`);
-  setValue("f-date", `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}`);
-  setValue("f-hour", pad2(d.getHours()));
-  setValue("f-minute", pad2(d.getMinutes()));
-  setValue("f-weather", row.weather ?? "맑음");
-  setValue("f-temp", String(15 + (row.id % 10)));
-  setValue("f-location", row.location);
-  setValue("f-line-section", `${row.lineName} · ${row.location}`);
+function setDelayRange(prefix, minKey, maxKey, flat) {
+  const min = splitMinutesToHourMin(flat[minKey]);
+  const max = splitMinutesToHourMin(flat[maxKey]);
+  setValue(`${prefix}-sh`, min.hour);
+  setValue(`${prefix}-sm`, min.min);
+  setValue(`${prefix}-eh`, max.hour);
+  setValue(`${prefix}-em`, max.min);
+}
 
-  setValue("d-pass-death", String(casualties.passDeath));
-  setValue("d-pass-serious", String(casualties.passSerious));
-  setValue("d-pass-minor", "0");
-  setValue("d-staff-death", String(casualties.staffDeath));
-  setValue("d-staff-serious", String(casualties.staffSerious));
-  setValue("f-facility-damage", row.damageScale ?? "");
-  setValue("d-total", damage);
-  setValue("d-property", damage);
+function resolveAccidentClassCode(flat) {
+  const kind = textOrEmpty(flat.accidentKind);
+  if (kind === "관리사고") return "AF";
+  if (kind === "준사고") return "NM";
+  if (kind === "장애(위험)") return "TH";
+  if (kind === "장애(무정차)") return "TE";
+  if (kind === "장애(지연)") return "T";
+  if (kind.includes("장애(관리(외부))")) return "TO";
+  if (kind.includes("장애(관리(기준 미만))")) return "TF";
+  if (kind === "사고") return "A";
+  const category = typeof classifyAccidentKind === "function" ? classifyAccidentKind(kind) : null;
+  if (category === "사고") return kind === "관리사고" ? "AF" : "A";
+  if (category === "준사고") return "NM";
+  if (category === "운행장애") return "T";
+  if (category === "운행장애(관리)") return "TO";
+  return "";
+}
 
-  setValue("f-overview", buildOverview(row));
-  setValue("f-action", `2. 발생경위 및 조치내용\n· ${row.cause}\n· 현장 조치: 운행 통제 및 복구 작업 실시\n· ${row.damageScale ?? ""}`);
-  setValue("f-cause-detail", `3. 발생원인: ${row.cause}`);
-  setValue("f-prevention", buildPrevention(row));
+function setAccidentClassRadios(flat) {
+  const code = resolveAccidentClassCode(flat);
+  const groups = [
+    { name: "acc-class-main", values: ["A", "AF"] },
+    { name: "acc-class-near", values: ["NM", "TH"] },
+    { name: "acc-class-delay", values: ["TE", "T", "TO", "TF"] },
+  ];
+  groups.forEach(({ name, values }) => {
+    document.querySelectorAll(`input[name="${name}"]`).forEach((input) => {
+      input.checked = input.value === code;
+    });
+  });
+  applyTroubleTypeLayout(code);
+}
+
+function applyTroubleTypeLayout(code) {
+  const isAccident = code === "A" || code === "AF";
+  const isDelay = code === "T" || code === "TE" || code === "TO" || code === "TF";
+  const typeLabel = document.getElementById("title-type-label");
+  const causeSide = document.getElementById("cause-side-label");
+  const causeMain = document.getElementById("title-cause-main");
+  const subCause = document.getElementById("row-sub-cause");
+  const trainCar = document.getElementById("tr-train-car-div");
+
+  if (typeLabel) typeLabel.textContent = isAccident ? "사고유형" : isDelay ? "운행장애 현상" : "사건유형";
+  if (causeSide) {
+    causeSide.innerHTML = isAccident ? "사고<br />원인" : isDelay ? "지연<br />운행<br />원인" : "사건<br />원인";
+  }
+  if (causeMain) causeMain.textContent = isAccident ? "주원인" : "발생원인";
+  if (subCause) subCause.style.display = isAccident ? "" : "none";
+  if (trainCar) trainCar.style.display = isAccident ? "" : "none";
+}
+
+function setRegistrationRadios(flat) {
+  const status = textOrEmpty(flat.registrationStatus);
+  const solo = document.querySelector('input[name="reg-status"][value="10"]');
+  const compete = document.querySelector('input[name="reg-status"][value="20"]');
+  if (solo) solo.checked = status.includes("단독") || status === "10";
+  if (compete) compete.checked = status.includes("경합") || status === "20";
+}
+
+function populateMainLineFields(flat) {
+  const block = textOrEmpty(flat.mainLineBlockTime);
+  const recovery = textOrEmpty(flat.mainLineRecoveryTime);
+  const blockMatch = block.match(/(\d+)\s*시간?\s*(\d+)?/);
+  if (blockMatch) {
+    setValue("f-mainline-block-h", pad2(blockMatch[1]));
+    setValue("f-mainline-block-m", pad2(blockMatch[2] ?? "0"));
+  } else if (block) {
+    const parts = splitMinutesToHourMin(block);
+    setValue("f-mainline-block-h", parts.hour);
+    setValue("f-mainline-block-m", parts.min);
+  }
+  if (recovery) {
+    setValue("f-mainline-rec-mo", recovery);
+  }
+}
+
+function resolveAccidentClassLabel(flat) {
+  const kind = textOrEmpty(flat.accidentKind);
+  if (kind && typeof classifyAccidentKind === "function") {
+    const category = classifyAccidentKind(kind);
+    if (category) return `${category} · ${kind}`;
+  }
+  const detail = textOrEmpty(flat.railwayAccidentKind);
+  if (detail) return detail;
+  const disruption = textOrEmpty(flat.operationDisruptionType);
+  if (disruption) return `운행장애 · ${disruption}`;
+  return kind;
+}
+
+function populateDetail(row, publication) {
+  const flat = readFlatRow(row);
+  const at = row.accidentAt ? new Date(row.accidentAt) : null;
+  const year = flat.year ?? (at ? at.getFullYear() : "");
+  const month = flat.month ?? (at ? at.getMonth() + 1 : "");
+  const day = flat.day ?? (at ? at.getDate() : "");
+  const hour = flat.hour ?? (at ? at.getHours() : "");
+  const minute = flat.minute ?? (at ? at.getMinutes() : "");
+  const deaths = flat.deaths ?? 0;
+  const serious = flat.seriousInjuries ?? 0;
+  const minor = flat.minorInjuries ?? 0;
+  const casualties = splitCasualties({ ...row, deaths, injuries: serious, seriousInjuries: serious });
+
+  setValue("f-serial", textOrEmpty(flat.accidentNumber) || formatSerial(row));
+  setValue("f-acc-class-display", resolveAccidentClassLabel(flat));
+  setValue("f-agency", textOrEmpty(flat.registrationAgency));
+  setValue("f-related-agency", textOrEmpty(flat.relatedAgency));
+  setValue("f-registration", textOrEmpty(flat.registrationStatus));
+  setAccidentClassRadios(flat);
+  setRegistrationRadios(flat);
+  setValue("f-rail-type", textOrEmpty(flat.railwayDivision));
+  setValue("f-investigation", textOrEmpty(flat.investigationStatus));
+  setValue("f-cause-1", textOrEmpty(flat.primaryCause));
+  setValue("f-cause-2", textOrEmpty(flat.rootCause));
+  setValue(
+    "f-date",
+    year && month && day ? `${year}${pad2(month)}${pad2(day)}` : textOrEmpty(flat.occurredAtText).slice(0, 10).replace(/-/g, ""),
+  );
+  setValue("f-hour", hour !== "" && hour !== null && hour !== undefined ? pad2(hour) : "");
+  setValue("f-minute", minute !== "" && minute !== null && minute !== undefined ? pad2(minute) : "");
+  setValue("f-weather", textOrEmpty(flat.weatherStatus));
+  setValue("f-temp", flat.temperature === null || flat.temperature === undefined ? "" : String(flat.temperature));
+  setValue("f-location", textOrEmpty(flat.administrativeDistrict || flat.place));
+
+  setValue("f-line-name", textOrEmpty(flat.lineName));
+  setValue("f-station-a", textOrEmpty(flat.stationA));
+  setValue("f-station-from", textOrEmpty(flat.stationA));
+  setValue("f-station-b", textOrEmpty(flat.stationB));
+  setValue("f-base-station", textOrEmpty(flat.baseStation));
+  setValue("f-accident-km", flat.accidentPointKm === null || flat.accidentPointKm === undefined ? "" : String(flat.accidentPointKm));
+  setValue("f-occurrence-place", textOrEmpty(flat.occurrencePlace || flat.place));
+  setValue("f-crossing", textOrEmpty(flat.crossing));
+
+  setValue("d-pass-death", deaths ? String(casualties.passDeath) : "");
+  setValue("d-pass-serious", serious ? String(casualties.passSerious) : "");
+  setValue("d-pass-minor", minor ? String(minor) : "");
+  setValue("d-pass-total", sumNums(casualties.passDeath, casualties.passSerious, minor) || "");
+  setValue("d-public-total", sumNums(deaths, serious, minor) || "");
+  setValue("d-staff-death", deaths ? String(casualties.staffDeath) : "");
+  setValue("d-staff-serious", serious ? String(casualties.staffSerious) : "");
+  setValue("d-staff-minor", "");
+  setValue("d-staff-total", sumNums(casualties.staffDeath, casualties.staffSerious) || "");
+
+  setValue("f-facility-damage", textOrEmpty(flat.facilityDamage));
+  setValue("d-total", flat.totalDamageAmount === null || flat.totalDamageAmount === undefined ? "" : String(flat.totalDamageAmount));
+  setValue(
+    "d-property",
+    flat.propertyDamageAmount === null || flat.propertyDamageAmount === undefined ? "" : String(flat.propertyDamageAmount),
+  );
+
+  setValue("f-overview", textOrEmpty(flat.accidentOverview));
+  setValue("f-action", textOrEmpty(flat.actionContent));
+  setValue("f-cause-detail", textOrEmpty(flat.accidentCause));
+  setValue("f-prevention", textOrEmpty(flat.preventionPlan));
 
   const reportEl = document.getElementById("f-report-file");
   if (reportEl) {
     reportEl.textContent = "첨부파일 없음";
   }
-  setValue("f-report-updated", formatDateTime(row.updatedAt));
+  setValue("f-report-updated", textOrEmpty(flat.savedAtText));
 
-  setValue("s-temp", row.weather ? String(15 + (row.id % 10)) : "-");
-  setValue("s-rail-type", resolveRailType(row.lineName));
+  setValue("s-temp", flat.temperature === null || flat.temperature === undefined ? "" : String(flat.temperature));
+  setValue("s-rail-type", textOrEmpty(flat.railwayDivision));
 
-  setValue("f-supplement-req", "정상");
-  setValue("f-supplement-res", "정상");
-  setValue("f-supplement-req-detail", "");
-  setValue("f-supplement-res-detail", "");
-}
+  setValue("f-supplement-req", textOrEmpty(flat.supplementRequestStatus));
+  setValue("f-supplement-res", textOrEmpty(flat.supplementResultStatus));
+  setValue("f-supplement-req-detail", textOrEmpty(flat.supplementRequestDetail));
+  setValue("f-supplement-res-detail", textOrEmpty(flat.supplementResultDetail));
 
-function formatDateTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
+  populateColFields(flat);
+
+  setDelayRange("delay-hs", "highSpeedDelayMin", "highSpeedDelayMax", flat);
+  setDelayRange("delay-rg", "regularDelayMin", "regularDelayMax", flat);
+  setDelayRange("delay-ur", "urbanDelayMin", "urbanDelayMax", flat);
+  setDelayRange("delay-dd", "dedicatedDelayMin", "dedicatedDelayMax", flat);
+  setDelayRange("delay-ot", "otherDelayMin", "otherDelayMax", flat);
+  setDelayRange("delay-tot", "totalDelayMin", "totalDelayMax", flat);
+  populateMainLineFields(flat);
+
+  if (typeof applyDetailPublicationMask === "function") {
+    applyDetailPublicationMask(publication);
+  }
+  if (typeof applyDetailPublicationTabs === "function") {
+    applyDetailPublicationTabs(publication);
+  }
 }
 
 function initTabs() {
@@ -173,9 +259,17 @@ function initTabs() {
 
   buttons.forEach((btn) => {
     btn.addEventListener("click", () => {
+      if (btn.style.display === "none") return;
       const tab = btn.dataset.tab;
-      buttons.forEach((b) => b.classList.toggle("active", b === btn));
-      panels.forEach((p) => p.classList.toggle("active", p.id === `tab-${tab}`));
+      buttons.forEach((b) => {
+        if (b.style.display === "none") return;
+        b.classList.toggle("active", b === btn);
+      });
+      panels.forEach((p) => {
+        const panelTab = p.id.replace(/^tab-/, "");
+        if (p.style.display === "none") return;
+        p.classList.toggle("active", panelTab === tab);
+      });
     });
   });
 }
@@ -191,7 +285,6 @@ function setDetailPanelVisible(id, visible) {
 function showError(message) {
   setDetailPanelVisible("detail-loading", false);
   setDetailPanelVisible("detail-content", false);
-  setDetailPanelVisible("detail-publication-wrap", false);
   const err = document.getElementById("detail-error");
   if (err) {
     err.textContent = message;
@@ -199,15 +292,9 @@ function showError(message) {
   }
 }
 
-function showContent(mode = "legacy") {
+function showContent() {
   setDetailPanelVisible("detail-loading", false);
   setDetailPanelVisible("detail-error", false);
-  if (mode === "publication") {
-    setDetailPanelVisible("detail-content", false);
-    setDetailPanelVisible("detail-publication-wrap", true);
-    return;
-  }
-  setDetailPanelVisible("detail-publication-wrap", false);
   setDetailPanelVisible("detail-content", true);
 }
 
@@ -229,20 +316,8 @@ async function loadDetail() {
       return;
     }
 
-    if (typeof shouldUsePublicationOnlyView === "function" && shouldUsePublicationOnlyView(publication)) {
-      renderPublicationDetailView(accident, publication);
-      const panels = document.getElementById("detail-publication-panels");
-      const hasPanels = Boolean(panels?.innerHTML?.trim());
-      if (hasPanels) {
-        showContent("publication");
-      } else {
-        populateDetail(accident);
-        showContent("legacy");
-      }
-    } else {
-      populateDetail(accident);
-      showContent("legacy");
-    }
+    populateDetail(accident, publication);
+    showContent();
 
     document.title = `사고 ${formatSerial(accident)} | 철도안전정보종합관리시스템`;
   } catch (error) {

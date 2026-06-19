@@ -104,22 +104,48 @@ function bindNoticeVisibilityToggles(container, items) {
   });
 }
 
-async function loadPortalNotices(limit = 5) {
-  const listEl = document.getElementById("notices-list");
+async function loadPortalBoardList({ listElId, boardType, limit = 5, labels }) {
+  const listEl = document.getElementById(listElId);
   if (!listEl) return;
 
-  listEl.innerHTML = `<li class="px-5 py-6 text-center text-sm text-gray-500">공지사항을 불러오는 중...</li>`;
+  listEl.innerHTML = `<li class="px-5 py-6 text-center text-sm text-gray-500">${labels.loading}</li>`;
 
   try {
-    const { items } = await fetchNotices({ page: 1, pageSize: limit, boardType: "NOTICE" });
+    const { items } = await fetchNotices({ page: 1, pageSize: limit, boardType });
     if (!items.length) {
-      listEl.innerHTML = `<li class="px-5 py-6 text-center text-sm text-gray-500">등록된 공지사항이 없습니다.</li>`;
+      listEl.innerHTML = `<li class="px-5 py-6 text-center text-sm text-gray-500">${labels.empty}</li>`;
       return;
     }
 
     listEl.innerHTML = items.map((notice) => renderNoticeListItem(notice, { compact: true })).join("");
   } catch (error) {
     console.error(error);
-    listEl.innerHTML = `<li class="px-5 py-6 text-center text-sm text-red-500">공지사항을 불러오지 못했습니다.</li>`;
+    listEl.innerHTML = `<li class="px-5 py-6 text-center text-sm text-red-500">${labels.error}</li>`;
   }
+}
+
+async function loadPortalNotices(limit = 5) {
+  await loadPortalBoardList({
+    listElId: "notices-list",
+    boardType: "NOTICE",
+    limit,
+    labels: {
+      loading: "공지사항을 불러오는 중...",
+      empty: "등록된 공지사항이 없습니다.",
+      error: "공지사항을 불러오지 못했습니다.",
+    },
+  });
+}
+
+async function loadPortalArchive(limit = 5) {
+  await loadPortalBoardList({
+    listElId: "archive-list",
+    boardType: "ARCHIVE",
+    limit,
+    labels: {
+      loading: "자료실을 불러오는 중...",
+      empty: "등록된 자료가 없습니다.",
+      error: "자료실을 불러오지 못했습니다.",
+    },
+  });
 }

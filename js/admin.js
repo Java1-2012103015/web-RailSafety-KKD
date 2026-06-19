@@ -387,14 +387,15 @@ function renderBrandingPreview(item) {
     item.showLogo && (pendingLogoPreviewUrl || item.logoUrl)
       ? buildBrandingLogoHtml(pendingLogoPreviewUrl || item.logoUrl)
       : "";
+  const headerTitleClass = "text-sm font-bold";
   const ciHtml =
     item.showCiMark && item.ciMarkLabel
-      ? `<span class="rounded bg-white/15 px-2 py-0.5 text-[11px] font-semibold">${item.ciMarkLabel}</span>`
+      ? `<span class="${headerTitleClass}">${item.ciMarkLabel}</span>`
       : "";
 
   preview.innerHTML = `
     <div class="rounded bg-navy-900 p-4 text-white">
-      <div class="flex items-center gap-2">${logoHtml}${ciHtml}<strong class="text-sm">${item.systemName}</strong></div>
+      <div class="flex items-center gap-2">${logoHtml}${ciHtml}<strong class="${headerTitleClass}">${item.systemName}</strong></div>
       <p class="mt-2 text-[11px] text-gray-300">브라우저 타이틀: ${item.pageTitle}</p>
     </div>
     ${
@@ -892,6 +893,156 @@ async function deleteMenu(id) {
 // ==========================================
 // TAB 4: PERMISSIONS MANAGEMENT
 // ==========================================
+
+const ROLE_PERM_DEFAULT_TAB_IDS = ["basic", "extra", "site", "review"];
+const ROLE_PERM_TAB_LABELS = {
+  basic: "기본정보",
+  extra: "추가정보",
+  site: "현장상황",
+  review: "보완검토",
+};
+
+let rolePublicationCache = null;
+let rolePermVisibleTabKeys = new Set();
+
+function invalidateRolePublicationCache() {
+  rolePublicationCache = null;
+}
+
+function resolveRolePermTabKeys(keys) {
+  if (Array.isArray(keys) && keys.length > 0) return keys;
+  return [...ROLE_PERM_DEFAULT_TAB_IDS];
+}
+
+async function ensureRolePublicationCache(force = false) {
+  if (rolePublicationCache && !force) return rolePublicationCache;
+  const res = await apiFetch("/api/admin/accident-db-publication", { auth: true });
+  rolePublicationCache = {
+    catalog: res.data?.catalog ?? null,
+    roles: res.data?.roles ?? [],
+  };
+  return rolePublicationCache;
+}
+
+function getRolePublicationEntry(roleId) {
+  return rolePublicationCache?.roles?.find((role) => role.roleId === roleId) ?? null;
+}
+
+function renderRolePermTabToggles() {
+  const wrap = document.getElementById("role-perm-tab-toggles");
+  if (!wrap) return;
+
+  const tabs = rolePublicationCache?.catalog?.tabs ?? ROLE_PERM_DEFAULT_TAB_IDS.map((id) => ({
+    id,
+    title: ROLE_PERM_TAB_LABELS[id] ?? id,
+  }));
+
+  wrap.innerHTML = tabs
+    .map((tab) => {
+      const checked = rolePermVisibleTabKeys.has(tab.id);
+      return `
+        <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-800 cursor-pointer">
+          <input type="checkbox" class="role-perm-tab-check h-4 w-4 rounded border-gray-300 text-navy-700" data-tab-id="${tab.id}" ${checked ? "checked" : ""} />
+          ${tab.title}
+        </label>
+      `;
+    })
+    .join("");
+
+  wrap.querySelectorAll(".role-perm-tab-check").forEach((input) => {
+    input.addEventListener("change", () => {
+      const tabId = input.getAttribute("data-tab-id");
+      if (!tabId) return;
+      if (input.checked) rolePermVisibleTabKeys.add(tabId);
+      else rolePermVisibleTabKeys.delete(tabId);
+    });
+  });
+}
+
+async function loadRolePermTabSettings(roleId) {
+  const status = document.getElementById("role-tab-perms-status");
+  if (status) status.textContent = "";
+
+  try {
+    await ensureRolePublicationCache();
+    const entry = getRolePublicationEntry(roleId);
+    rolePermVisibleTabKeys = new Set(resolveRolePermTabKeys(entry?.visibleTabKeys));
+    renderRolePermTabToggles();
+  } catch (error) {
+    rolePermVisibleTabKeys = new Set(ROLE_PERM_DEFAULT_TAB_IDS);
+    renderRolePermTabToggles();
+    if (status) {
+      status.textContent = `탭 권한 조회 실패: ${error.message}`;
+      status.className = "text-xs text-red-600 font-semibold text-right";
+    }
+  }
+}
+
+function syncAdbPubRoleTabKeys(roleId, visibleTabKeys) {
+  if (typeof adbPubState === "undefined" || !Array.isArray(adbPubState.roles)) return;
+  const idx = adbPubState.roles.findIndex((role) => role.roleId === roleId);
+  if (idx < 0) return;
+  adbPubState.roles[idx] = { ...adbPubState.roles[idx], visibleTabKeys };
+  if (adbPubState.selectedRoleId === roleId) {
+    adbPubState.visibleTabKeys = new Set(visibleTabKeys);
+    if (typeof renderTabToggles === "function") renderTabToggles();
+    if (typeof renderApprovedGroups === "function") renderApprovedGroups();
+  }
+}
+
+async function saveRolePermTabSettings() {
+  if (!selectedRoleId) return;
+
+  const status = document.getElementById("role-tab-perms-status");
+  const btn = document.getElementById("btn-save-tab-perms");
+  if (status) {
+    status.textContent = "저장 중...";
+    status.className = "text-xs text-gray-500 text-right";
+  }
+  if (btn) btn.disabled = true;
+
+  try {
+    await ensureRolePublicationCache();
+    const entry = getRolePublicationEntry(selectedRoleId);
+    const visibleColumnKeys = entry?.visibleColumnKeys ?? [];
+    const visibleTabKeys = Array.from(rolePermVisibleTabKeys);
+
+    const res = await apiFetch(`/api/admin/accident-db-publication/${selectedRoleId}`, {
+      auth: true,
+      method: "PUT",
+      body: { visibleColumnKeys, visibleTabKeys },
+    });
+
+    const savedTabs = resolveRolePermTabKeys(res.data?.visibleTabKeys);
+    rolePermVisibleTabKeys = new Set(savedTabs);
+
+    const cacheIdx = rolePublicationCache.roles.findIndex((role) => role.roleId === selectedRoleId);
+    if (cacheIdx >= 0) {
+      rolePublicationCache.roles[cacheIdx] = {
+        ...rolePublicationCache.roles[cacheIdx],
+        ...res.data,
+        visibleColumnKeys: res.data.visibleColumnKeys,
+        visibleTabKeys: savedTabs,
+      };
+    }
+
+    syncAdbPubRoleTabKeys(selectedRoleId, savedTabs);
+    renderRolePermTabToggles();
+
+    if (status) {
+      status.textContent = "저장 완료!";
+      status.className = "text-xs text-green-600 font-semibold text-right";
+    }
+  } catch (error) {
+    if (status) {
+      status.textContent = `저장 실패: ${error.message}`;
+      status.className = "text-xs text-red-600 font-semibold text-right";
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 async function loadRolesTab() {
   const roleSelect = document.getElementById("select-permission-role");
   const wrap = document.getElementById("role-permissions-config-wrap");
@@ -1743,6 +1894,8 @@ async function onPermissionRoleChange() {
     typeCheckboxes.forEach(cb => {
       cb.checked = allowedTypes.has(cb.value);
     });
+
+    await loadRolePermTabSettings(selectedRoleId);
 
   } catch (error) {
     status.textContent = "권한 조회 실패: " + error.message;
@@ -3785,6 +3938,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("select-permission-role").addEventListener("change", onPermissionRoleChange);
   document.getElementById("btn-save-menu-perms").addEventListener("click", saveMenuPermissions);
   document.getElementById("btn-save-query-perms").addEventListener("click", saveQueryPermissions);
+  document.getElementById("btn-save-tab-perms").addEventListener("click", saveRolePermTabSettings);
   document.getElementById("btn-create-role").addEventListener("click", createRole);
   document.getElementById("btn-update-role").addEventListener("click", updateRoleName);
   document.getElementById("btn-delete-role").addEventListener("click", deleteRole);
