@@ -6,6 +6,7 @@ const DETAIL_FIELD_COLUMNS = {
   "f-related-agency": ["relatedAgency"],
   "f-registration": ["registrationStatus"],
   "f-disruption-type": ["operationDisruptionType"],
+  "f-type-detail-value": ["accidentKind", "railwayAccidentKind", "operationDisruptionType", "nearMissStatus"],
   "f-rail-type": ["railwayDivision"],
   "f-investigation": ["investigationStatus"],
   "f-cause-1": ["primaryCause"],

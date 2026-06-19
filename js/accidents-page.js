@@ -28,17 +28,6 @@ const CATEGORY_BY_TYPE = {
   OTHER: "준사고",
 };
 
-const LINE_OPTIONS = [
-  "경부선",
-  "경부고속선",
-  "호남선",
-  "경원선",
-  "중앙선",
-  "전라선",
-  "수도권도시철도 8호선",
-  "공항철도",
-];
-
 const BULK_MAX_RECORDS = 20000;
 /** nginx 기본 1MB 제한 등 프록시 환경에서 413 방지 — 건당 요청 크기 상한 */
 const BULK_CHUNK_SIZE = 100;
@@ -123,15 +112,21 @@ function resolveCategory(row) {
 
 function enrichRow(row) {
   const detail = row.detail ?? {};
+  const seriousInjuries = detail.seriousInjuries ?? row.seriousInjuries ?? row.injuries ?? 0;
+  const damageFromDetail = detail.totalDamageAmount ?? row.totalDamageAmount;
   return {
     ...row,
     serialNo: detail.accidentNumber?.trim() || formatSerialNumber(row),
     operatingAgency: detail.registrationAgency?.trim() || "-",
     registrationStatus: detail.registrationStatus?.trim() || "-",
-    relatedAgency: "-",
+    relatedAgency: detail.relatedAgency?.trim() || "-",
     accidentCategory: resolveCategory(row),
     typeLabel: resolveTypeLabel(row),
-    damageAmount: resolveDamageAmount(row),
+    seriousInjuries,
+    damageAmount:
+      damageFromDetail != null && damageFromDetail !== ""
+        ? damageFromDetail
+        : resolveDamageAmount(row),
     closingSetting: detail.closingSetting?.trim() || "-",
     hasAttachment: false,
     investigationStatus: detail.investigationStatus?.trim() || "-",
@@ -144,7 +139,6 @@ function enrichRow(row) {
         : row.lineName?.includes("호선") || row.lineName?.includes("도시")
           ? "도시철도"
           : "일반"),
-    trainType: detail.trainType?.trim() || (row.trainCount && row.trainCount > 1 ? "여객" : "전동차"),
     linked: row.id % 4 === 0 ? "Y" : "N",
     contention: row.deaths > 0 ? "Y" : "N",
   };
@@ -200,41 +194,69 @@ function applyFiltersFromDashboardUrl() {
   }
 }
 
-function populateLineFilter() {
-  const select = document.getElementById("filter-line");
-  if (!select) return;
-  const current = select.value;
-  select.innerHTML = '<option value="">전체</option>';
-  for (const line of LINE_OPTIONS) {
-    const option = document.createElement("option");
-    option.value = line;
-    option.textContent = line;
-    select.appendChild(option);
+async function populateSearchFilters() {
+  const agencySelect = document.getElementById("filter-agency");
+  const railCategorySelect = document.getElementById("filter-rail-category");
+  const lineSelect = document.getElementById("filter-line");
+  if (!agencySelect && !railCategorySelect && !lineSelect) return;
+
+  const currentAgency = agencySelect?.value ?? "";
+  const currentRailCategory = railCategorySelect?.value ?? "";
+  const currentLine = lineSelect?.value ?? "";
+
+  if (agencySelect) {
+    agencySelect.innerHTML = '<option value="">전체</option>';
   }
-  if (current) select.value = current;
-}
-
-async function populateAgencyFilter() {
-  const select = document.getElementById("filter-agency");
-  if (!select) return;
-
-  const current = select.value;
-  select.innerHTML = '<option value="">전체</option>';
+  if (railCategorySelect) {
+    railCategorySelect.innerHTML = '<option value="">전체</option>';
+  }
+  if (lineSelect) {
+    lineSelect.innerHTML = '<option value="">전체</option>';
+  }
 
   try {
     const result = await apiFetch("/api/accidents/filter-options", { auth: true });
     const agencies = result.data?.registrationAgencies ?? [];
-    for (const agency of agencies) {
-      const option = document.createElement("option");
-      option.value = agency;
-      option.textContent = agency;
-      select.appendChild(option);
+    const railCategories = result.data?.railCategories ?? [];
+    const lineNames = result.data?.lineNames ?? [];
+
+    if (agencySelect) {
+      for (const agency of agencies) {
+        const option = document.createElement("option");
+        option.value = agency;
+        option.textContent = agency;
+        agencySelect.appendChild(option);
+      }
+      if (currentAgency && agencies.includes(currentAgency)) {
+        agencySelect.value = currentAgency;
+      }
     }
-    if (current && agencies.includes(current)) {
-      select.value = current;
+
+    if (railCategorySelect) {
+      for (const railCategory of railCategories) {
+        const option = document.createElement("option");
+        option.value = railCategory;
+        option.textContent = railCategory;
+        railCategorySelect.appendChild(option);
+      }
+      if (currentRailCategory && railCategories.includes(currentRailCategory)) {
+        railCategorySelect.value = currentRailCategory;
+      }
+    }
+
+    if (lineSelect) {
+      for (const line of lineNames) {
+        const option = document.createElement("option");
+        option.value = line;
+        option.textContent = line;
+        lineSelect.appendChild(option);
+      }
+      if (currentLine && lineNames.includes(currentLine)) {
+        lineSelect.value = currentLine;
+      }
     }
   } catch (error) {
-    console.error("등록기관 목록을 불러오지 못했습니다.", error);
+    console.error("검색 조건 목록을 불러오지 못했습니다.", error);
   }
 }
 
@@ -246,14 +268,12 @@ function buildQueryParams(overrides = {}) {
   const startDate = document.getElementById("filter-start-date")?.value;
   const endDate = document.getElementById("filter-end-date")?.value;
   const lineName = document.getElementById("filter-line")?.value;
-  const accidentType = document.getElementById("filter-accident-type")?.value;
   const accidentKindCategory = document.getElementById("filter-type-l1")?.value;
   const registrationAgency = document.getElementById("filter-agency")?.value;
 
   if (startDate) params.set("startDate", startDate);
   if (endDate) params.set("endDate", `${endDate}T23:59:59.999`);
   if (lineName) params.set("lineName", lineName);
-  if (accidentType) params.set("accidentType", accidentType);
   if (registrationAgency) params.set("registrationAgency", registrationAgency);
   if (dashboardAccidentKinds?.length) {
     params.set("accidentKinds", dashboardAccidentKinds.join(","));
@@ -268,20 +288,12 @@ function hasClientOnlyFilters() {
   // 대시보드 차트 클릭: accidentKinds(L열 정확값)는 서버에서 이미 필터됨
   if (dashboardAccidentKinds?.length) return false;
 
-  return Boolean(
-    document.getElementById("filter-closed")?.value ||
-      document.getElementById("filter-rail-category")?.value ||
-      document.getElementById("filter-train-type")?.value ||
-      document.getElementById("filter-type-l1")?.value,
-  );
+  return Boolean(document.getElementById("filter-rail-category")?.value);
 }
 
 function matchesClientFilters(row) {
   const agency = document.getElementById("filter-agency")?.value;
-  const closed = document.getElementById("filter-closed")?.value;
   const railCategory = document.getElementById("filter-rail-category")?.value;
-  const trainType = document.getElementById("filter-train-type")?.value;
-  const typeL1 = document.getElementById("filter-type-l1")?.value;
 
   if (agency) {
     const reg = row.detail?.registrationAgency?.trim() ?? row.operatingAgency ?? "";
@@ -289,13 +301,7 @@ function matchesClientFilters(row) {
       agency === "서울교통" ? ["서울교통", "서울교통공사"] : agency === "철도공사" ? ["철도공사", "철도공단"] : [agency];
     if (!variants.some((variant) => reg.includes(variant))) return false;
   }
-  if (closed && row.closingSetting !== closed) return false;
   if (railCategory && row.railCategory !== railCategory) return false;
-  if (trainType && row.trainType !== trainType) return false;
-  if (typeL1 && !dashboardAccidentKinds?.length) {
-    const category = classifyAccidentKind(row.detail?.accidentKind) ?? row.accidentCategory;
-    if (category !== typeL1) return false;
-  }
   return true;
 }
 
@@ -326,53 +332,6 @@ function toAccidentExportRow(row) {
     열차수: row.trainCount ?? "",
     기상: row.weather ?? "",
   };
-}
-
-function buildCasualtyExportRows(row) {
-  const enriched = enrichRow(row);
-  const rows = [];
-  const genders = ["남", "여"];
-  const injuryGrades = ["중상", "경상"];
-  let seq = 1;
-
-  for (let i = 0; i < row.deaths; i += 1) {
-    rows.push({
-      사고일련번호: enriched.serialNo,
-      발생일시: formatDateTime(row.accidentAt),
-      노선: row.lineName,
-      운영기관: enriched.operatingAgency,
-    등록기관: enriched.operatingAgency,
-      사상자구분: "사망",
-      성명: `피해자${String((row.id * 10 + seq) % 1000).padStart(3, "0")}`,
-      성별: genders[(row.id + seq) % 2],
-      연령: 20 + ((row.id * 7 + seq * 3) % 50),
-      사상정도: "사망",
-      치료현황: "-",
-      비고: "",
-    });
-    seq += 1;
-  }
-
-  for (let i = 0; i < row.injuries; i += 1) {
-    const grade = injuryGrades[i % injuryGrades.length];
-    rows.push({
-      사고일련번호: enriched.serialNo,
-      발생일시: formatDateTime(row.accidentAt),
-      노선: row.lineName,
-      운영기관: enriched.operatingAgency,
-    등록기관: enriched.operatingAgency,
-      사상자구분: "부상",
-      성명: `피해자${String((row.id * 10 + seq) % 1000).padStart(3, "0")}`,
-      성별: genders[(row.id + seq + 1) % 2],
-      연령: 18 + ((row.id * 5 + seq * 2) % 55),
-      사상정도: grade,
-      치료현황: grade === "중상" ? "입원" : "통원",
-      비고: "",
-    });
-    seq += 1;
-  }
-
-  return rows;
 }
 
 function normalizeAccidentType(value) {
@@ -691,17 +650,7 @@ function exportAccidentInfoToXlsx() {
   });
 }
 
-function exportCasualtyInfoToXlsx() {
-  return downloadXlsx({
-    buttonId: "accidents-export-casualty-btn",
-    buildRows: (items) => items.flatMap(buildCasualtyExportRows),
-    sheetName: "사상자정보",
-    filePrefix: "사상자정보",
-    emptyMessage: "다운로드할 사상자 정보가 없습니다. (사망·부상 건수가 0인 경우)",
-  });
-}
-
-const ACCIDENT_LIST_COL_COUNT = 12;
+const ACCIDENT_LIST_COL_COUNT = 11;
 
 function renderAccidents(items) {
   const tbody = document.getElementById("accidents-table-body");
@@ -725,11 +674,10 @@ function renderAccidents(items) {
       <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5 text-left">${enriched.serialNo}</td>
       <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5">${formatDateOnly(row.accidentAt)}</td>
       <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5">${enriched.operatingAgency}</td>
-      <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5 text-left">${row.lineName}</td>
+      <td class="whitespace-nowrap border-r border-gray-200 px-2 py-1.5 text-left">${row.lineName ?? "-"}</td>
       <td class="border-r border-gray-200 px-2 py-1.5">${enriched.accidentCategory}</td>
-      <td class="border-r border-gray-200 px-2 py-1.5">${enriched.typeLabel}</td>
-      <td class="border-r border-gray-200 px-2 py-1.5">${row.deaths}</td>
-      <td class="border-r border-gray-200 px-2 py-1.5">${row.injuries}</td>
+      <td class="accidents-col-casualty border-r border-gray-200 px-2 py-1.5">${row.deaths ?? 0}</td>
+      <td class="accidents-col-casualty border-r border-gray-200 px-2 py-1.5">${enriched.seriousInjuries}</td>
       <td class="border-r border-gray-200 px-2 py-1.5 text-right">${enriched.damageAmount}</td>
       <td class="border-r border-gray-200 px-2 py-1.5">${attachmentCell}</td>
       <td class="px-2 py-1.5">
@@ -947,10 +895,6 @@ function bindListEvents() {
     exportAccidentInfoToXlsx();
   });
 
-  document.getElementById("accidents-export-casualty-btn")?.addEventListener("click", () => {
-    exportCasualtyInfoToXlsx();
-  });
-
   document.getElementById("accidents-bulk-upload-btn")?.addEventListener("click", () => {
     document.getElementById("accidents-bulk-file-input")?.click();
   });
@@ -1001,27 +945,6 @@ function bindListEvents() {
     if (!id) return;
     window.location.href = `/accidents/detail?id=${encodeURIComponent(id)}`;
   });
-
-  document.getElementById("filter-type-l1")?.addEventListener("change", (event) => {
-    const l2 = document.getElementById("filter-type-l2");
-    const l3 = document.getElementById("filter-type-l3");
-    if (!l2 || !l3) return;
-    const value = event.target.value;
-    const subOptions = {
-      사고: ["충돌", "탈선", "화재"],
-      준사고: ["신호위반", "여객(사상)", "직원(사상)"],
-      "운행장애(관리)": ["시설물", "관리사고", "장애(관리)"],
-      운행장애: ["신호장애", "차량고장", "장애(지연)"],
-    };
-    l2.innerHTML = '<option value="">전체</option>';
-    l3.innerHTML = '<option value="">전체</option>';
-    for (const label of subOptions[value] ?? []) {
-      const opt = document.createElement("option");
-      opt.value = label;
-      opt.textContent = label;
-      l2.appendChild(opt);
-    }
-  });
 }
 
 async function loadAccidentsPage() {
@@ -1051,8 +974,7 @@ async function loadAccidentsPage() {
     applyAccidentsAdminControls();
     initDefaultDates();
     applyFiltersFromDashboardUrl();
-    populateLineFilter();
-    await populateAgencyFilter();
+    await populateSearchFilters();
     bindListEvents();
     await loadAccidentsList();
     return;

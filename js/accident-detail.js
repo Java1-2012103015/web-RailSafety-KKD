@@ -68,7 +68,7 @@ function setDelayRange(prefix, minKey, maxKey, flat) {
 }
 
 function resolveAccidentClassCode(flat) {
-  const kind = textOrEmpty(flat.accidentKind);
+  const kind = textOrEmpty(flat.accidentKind) || textOrEmpty(flat.railwayAccidentKind);
   if (kind === "관리사고") return "AF";
   if (kind === "준사고") return "NM";
   if (kind === "장애(위험)") return "TH";
@@ -80,9 +80,46 @@ function resolveAccidentClassCode(flat) {
   const category = typeof classifyAccidentKind === "function" ? classifyAccidentKind(kind) : null;
   if (category === "사고") return kind === "관리사고" ? "AF" : "A";
   if (category === "준사고") return "NM";
-  if (category === "운행장애") return "T";
-  if (category === "운행장애(관리)") return "TO";
+  if (category === "운행장애") {
+    if (kind.includes("무정차")) return "TE";
+    if (kind.includes("위험")) return "TH";
+    return "T";
+  }
+  if (category === "운행장애(관리)") {
+    if (kind.includes("외부")) return "TO";
+    return "TF";
+  }
+
+  const disruption = textOrEmpty(flat.operationDisruptionType);
+  if (disruption) {
+    return resolveAccidentClassCode({ ...flat, accidentKind: disruption, operationDisruptionType: "" });
+  }
+
   return "";
+}
+
+function updateAccidentTypeDetailField(flat) {
+  const labelEl = document.getElementById("f-type-detail-label");
+  const valueEl = document.getElementById("f-type-detail-value");
+  if (!labelEl || !valueEl) return;
+
+  const code = resolveAccidentClassCode(flat);
+  const kind = textOrEmpty(flat.accidentKind) || textOrEmpty(flat.railwayAccidentKind);
+  const isDelay = code === "T" || code === "TE" || code === "TO" || code === "TF";
+  const isNear = code === "NM" || code === "TH";
+
+  if (isDelay) {
+    labelEl.textContent = "운행장애";
+    valueEl.value = kind || textOrEmpty(flat.operationDisruptionType);
+    return;
+  }
+  if (isNear) {
+    labelEl.textContent = "준사고";
+    valueEl.value = kind || textOrEmpty(flat.nearMissStatus);
+    return;
+  }
+  labelEl.textContent = "사고유형";
+  valueEl.value = kind || textOrEmpty(flat.railwayAccidentKind);
 }
 
 function setAccidentClassRadios(flat) {
@@ -175,6 +212,7 @@ function populateDetail(row, publication) {
   setValue("f-related-agency", textOrEmpty(flat.relatedAgency));
   setValue("f-registration", textOrEmpty(flat.registrationStatus));
   setAccidentClassRadios(flat);
+  updateAccidentTypeDetailField(flat);
   setRegistrationRadios(flat);
   setValue("f-rail-type", textOrEmpty(flat.railwayDivision));
   setValue("f-investigation", textOrEmpty(flat.investigationStatus));

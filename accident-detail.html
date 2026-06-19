@@ -113,11 +113,15 @@
                     <td><input id="f-serial" class="detail-input" readonly /></td>
                     <th class="req">사고/장애</th>
                     <td colspan="3">
-                      <div class="flex flex-wrap gap-4 text-sm">
-                        <label><input type="radio" name="acc-class" disabled /> 사고</label>
-                        <label><input type="radio" name="acc-class" disabled /> 관리사고</label>
-                        <label><input type="radio" name="acc-near" checked disabled /> 준사고</label>
-                        <label><input type="radio" name="acc-delay" disabled /> 지연</label>
+                      <div class="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+                        <label><input type="radio" name="acc-class-main" value="A" disabled /> 사고</label>
+                        <label><input type="radio" name="acc-class-main" value="AF" disabled /> 관리사고</label>
+                        <label><input type="radio" name="acc-class-near" value="NM" disabled /> 준사고</label>
+                        <label><input type="radio" name="acc-class-near" value="TH" disabled /> 장애(위험)</label>
+                        <label><input type="radio" name="acc-class-delay" value="T" disabled /> 장애(지연)</label>
+                        <label><input type="radio" name="acc-class-delay" value="TE" disabled /> 장애(무정차)</label>
+                        <label><input type="radio" name="acc-class-delay" value="TO" disabled /> 장애(관리·외부)</label>
+                        <label><input type="radio" name="acc-class-delay" value="TF" disabled /> 장애(관리·기준미만)</label>
                       </div>
                     </td>
                   </tr>
@@ -132,13 +136,17 @@
                     <td><input id="f-registration" class="detail-input" readonly /></td>
                     <th class="req">철도종류</th>
                     <td><input id="f-rail-type" class="detail-input" readonly /></td>
-                    <th class="req">준사고</th>
-                    <td><input id="f-near-type" class="detail-input" readonly /></td>
+                    <th class="req" id="f-type-detail-label">사고유형</th>
+                    <td><input id="f-type-detail-value" class="detail-input" readonly /></td>
                   </tr>
                   <tr>
                     <th class="req">장소유형</th>
-                    <td><input class="detail-input" value="본선" readonly /></td>
-                    <td><input class="detail-input" value="분기부" readonly /></td>
+                    <td>
+                      <div class="flex gap-2">
+                        <input class="detail-input" value="본선" readonly />
+                        <input class="detail-input" value="분기부" readonly />
+                      </div>
+                    </td>
                     <th class="req">조사상태</th>
                     <td><input id="f-investigation" class="detail-input" readonly /></td>
                     <th class="req">운행선 구분</th>
@@ -393,6 +401,7 @@
     <script src="/js/board-layout.js"></script>
     <script src="/js/menus.js"></script>
     <script src="/js/accident-db-columns.js"></script>
+    <script src="/js/accident-kind-category.js"></script>
     <script src="/js/accident-detail-publication-view.js"></script>
     <script src="/js/accident-detail.js"></script>
   </body>

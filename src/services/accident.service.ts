@@ -294,24 +294,56 @@ export class AccidentService {
     };
   }
 
-  async getFilterOptions(auth: { roleId: number; role: string }): Promise<{ registrationAgencies: string[] }> {
+  async getFilterOptions(
+    auth: { roleId: number; role: string },
+  ): Promise<{ registrationAgencies: string[]; lineNames: string[]; railCategories: string[] }> {
     if (auth.role === ROLES.ADMIN) {
-      const registrationAgencies = await this.accidentRepository.findDistinctRegistrationAgencies();
-      return { registrationAgencies };
+      const [registrationAgencies, lineNames, railCategories] = await Promise.all([
+        this.accidentRepository.findDistinctRegistrationAgencies(),
+        this.accidentRepository.findDistinctLineNames(),
+        this.accidentRepository.findDistinctRailCategories(),
+      ]);
+      return { registrationAgencies, lineNames, railCategories };
     }
 
     const queryPermission = await this.permissionRepository.findRoleQueryPermission(auth.roleId);
     const locationScope = normalizeLocationScope(queryPermission?.allowedLocationScope);
+    const permissionLineNames = Array.isArray(queryPermission?.allowedLineNames)
+      ? (queryPermission.allowedLineNames as string[]).map((line) => line.trim()).filter(Boolean)
+      : undefined;
 
-    if (locationScope.length > 0) {
-      const registrationAgencies = [...new Set(locationScope.map((rule) => rule.institutionName))].sort((a, b) =>
-        a.localeCompare(b, "ko"),
-      );
-      return { registrationAgencies };
+    const scopeFilters: { lineNames?: string[]; locationScope?: ReturnType<typeof normalizeLocationScope> } = {};
+
+    if (queryPermission?.enforcedLineName?.trim()) {
+      scopeFilters.lineNames = [queryPermission.enforcedLineName.trim()];
+    } else if (locationScope.length === 0 && permissionLineNames && permissionLineNames.length > 0) {
+      scopeFilters.lineNames = permissionLineNames;
     }
 
-    const registrationAgencies = await this.accidentRepository.findDistinctRegistrationAgencies();
-    return { registrationAgencies };
+    if (locationScope.length > 0) {
+      scopeFilters.locationScope = locationScope;
+    }
+
+    let registrationAgencies: string[];
+    if (locationScope.length > 0) {
+      registrationAgencies = [...new Set(locationScope.map((rule) => rule.institutionName))].sort((a, b) =>
+        a.localeCompare(b, "ko"),
+      );
+    } else {
+      registrationAgencies = await this.accidentRepository.findDistinctRegistrationAgencies();
+    }
+
+    const [lineNames, railCategories] = await Promise.all([
+      this.accidentRepository.findDistinctLineNames(scopeFilters),
+      this.accidentRepository.findDistinctRailCategories(scopeFilters),
+    ]);
+
+    let resolvedLineNames = lineNames;
+    if (queryPermission?.enforcedLineName?.trim() && resolvedLineNames.length === 0) {
+      resolvedLineNames = [queryPermission.enforcedLineName.trim()];
+    }
+
+    return { registrationAgencies, lineNames: resolvedLineNames, railCategories };
   }
 
   async getAccidentById(

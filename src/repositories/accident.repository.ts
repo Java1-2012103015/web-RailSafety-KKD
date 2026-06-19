@@ -7,6 +7,7 @@ import {
   buildRegistrationAgencyWhere,
   type LocationScopeRule,
 } from "../constants/query-location-scope";
+import { inferRailCategoryFromLineName } from "../utils/rail-category";
 export interface AccidentSearchQuery {
   startDate?: Date;
   endDate?: Date;
@@ -41,6 +42,57 @@ export type RegistrationAgencyLine = {
   lineName: string;
 };
 
+export type AccidentSearchFilters = Omit<AccidentSearchQuery, "page" | "pageSize">;
+
+function buildAccidentSearchWhere(query: AccidentSearchFilters): Prisma.RailwayAccidentWhereInput {
+  const where: Prisma.RailwayAccidentWhereInput = {};
+
+  if (query.startDate || query.endDate) {
+    where.accidentAt = {};
+    if (query.startDate) {
+      where.accidentAt.gte = query.startDate;
+    }
+    if (query.endDate) {
+      where.accidentAt.lte = query.endDate;
+    }
+  }
+
+  if (query.lineNames && query.lineNames.length > 0) {
+    where.lineName = { in: query.lineNames };
+  }
+
+  if (query.accidentTypes && query.accidentTypes.length > 0) {
+    where.accidentType = {
+      in: query.accidentTypes,
+    };
+  }
+
+  const accidentKindCategoryWhere = buildAccidentKindCategoryWhere(query.accidentKindCategories ?? []);
+  if (query.accidentKinds?.length) {
+    where.AND = [
+      ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      { detail: { accidentKind: { in: query.accidentKinds } } },
+    ];
+  } else if (accidentKindCategoryWhere) {
+    where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), accidentKindCategoryWhere];
+  }
+
+  const registrationAgencyWhere = buildRegistrationAgencyWhere(query.registrationAgency ?? "");
+  if (registrationAgencyWhere) {
+    where.AND = [
+      ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      registrationAgencyWhere,
+    ];
+  }
+
+  const locationScopeWhere = buildLocationScopeWhere(query.locationScope ?? []);
+  if (locationScopeWhere) {
+    where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), locationScopeWhere];
+  }
+
+  return where;
+}
+
 export class AccidentRepository {
   async findById(id: number): Promise<RailwayAccident | null> {
     return prisma.railwayAccident.findUnique({
@@ -50,50 +102,7 @@ export class AccidentRepository {
   }
 
   async findMany(query: AccidentSearchQuery): Promise<{ items: RailwayAccident[]; total: number }> {
-    const where: Prisma.RailwayAccidentWhereInput = {};
-
-    if (query.startDate || query.endDate) {
-      where.accidentAt = {};
-      if (query.startDate) {
-        where.accidentAt.gte = query.startDate;
-      }
-      if (query.endDate) {
-        where.accidentAt.lte = query.endDate;
-      }
-    }
-
-    if (query.lineNames && query.lineNames.length > 0) {
-      where.lineName = { in: query.lineNames };
-    }
-
-    if (query.accidentTypes && query.accidentTypes.length > 0) {
-      where.accidentType = {
-        in: query.accidentTypes,
-      };
-    }
-
-    const accidentKindCategoryWhere = buildAccidentKindCategoryWhere(query.accidentKindCategories ?? []);
-    if (query.accidentKinds?.length) {
-      where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
-        { detail: { accidentKind: { in: query.accidentKinds } } },
-      ];
-    } else if (accidentKindCategoryWhere) {
-      where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), accidentKindCategoryWhere];
-    }
-
-    const registrationAgencyWhere = buildRegistrationAgencyWhere(query.registrationAgency ?? "");
-    if (registrationAgencyWhere) {
-      where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
-        registrationAgencyWhere,
-      ];
-    }
-
-    const locationScopeWhere = buildLocationScopeWhere(query.locationScope ?? []);
-    if (locationScopeWhere) {
-      where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), locationScopeWhere];
-    }
+    const where = buildAccidentSearchWhere(query);
 
     const skip = (query.page - 1) * query.pageSize;
     const take = query.pageSize;
@@ -184,6 +193,67 @@ export class AccidentRepository {
     return rows
       .map((row) => row.registrationAgency?.trim())
       .filter((value): value is string => Boolean(value));
+  }
+
+  async findDistinctLineNames(query: AccidentSearchFilters = {}): Promise<string[]> {
+    const where = buildAccidentSearchWhere(query);
+    if (!where.lineName) {
+      where.lineName = { not: "" };
+    }
+
+    const rows = await prisma.railwayAccident.findMany({
+      where,
+      distinct: ["lineName"],
+      select: { lineName: true },
+      orderBy: { lineName: "asc" },
+    });
+
+    return rows
+      .map((row) => row.lineName.trim())
+      .filter((value): value is string => Boolean(value));
+  }
+
+  async findDistinctRailCategories(query: AccidentSearchFilters = {}): Promise<string[]> {
+    const baseWhere = buildAccidentSearchWhere(query);
+    const categories = new Set<string>();
+
+    const explicitRows = await prisma.accidentDetail.findMany({
+      where: {
+        accident: baseWhere,
+        AND: [{ railwayDivision: { not: null } }, { railwayDivision: { not: "" } }],
+      },
+      distinct: ["railwayDivision"],
+      select: { railwayDivision: true },
+      orderBy: { railwayDivision: "asc" },
+    });
+
+    for (const row of explicitRows) {
+      const value = row.railwayDivision?.trim();
+      if (value) categories.add(value);
+    }
+
+    const implicitLines = await prisma.railwayAccident.findMany({
+      where: {
+        AND: [
+          baseWhere,
+          {
+            OR: [
+              { detail: null },
+              { detail: { railwayDivision: null } },
+              { detail: { railwayDivision: "" } },
+            ],
+          },
+        ],
+      },
+      distinct: ["lineName"],
+      select: { lineName: true },
+    });
+
+    for (const row of implicitLines) {
+      categories.add(inferRailCategoryFromLineName(row.lineName));
+    }
+
+    return [...categories].sort((a, b) => a.localeCompare(b, "ko"));
   }
 
   async findDistinctRegistrationAgencyLines(): Promise<RegistrationAgencyLine[]> {
