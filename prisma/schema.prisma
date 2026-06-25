@@ -54,23 +54,28 @@ model RoleBranding {
 }
 
 model User {
-  id                   Int      @id @default(autoincrement())
-  email                String   @unique
-  password             String
-  name                 String
-  roleId               Int
-  role                 Role     @relation(fields: [roleId], references: [id])
-  ipRestrictionEnabled Boolean  @default(false)
-  allowedIp            String?
-  affiliation          String?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  id                      Int                    @id @default(autoincrement())
+  email                   String                 @unique
+  password                String
+  name                    String
+  roleId                  Int
+  role                    Role                   @relation(fields: [roleId], references: [id])
+  ipRestrictionEnabled    Boolean                @default(false)
+  allowedIp               String?
+  affiliation             String?
+  selfReportInstitutionId Int?
+  selfReportInstitution   SelfReportInstitution? @relation(fields: [selfReportInstitutionId], references: [id], onDelete: SetNull)
+  selfReportAuthKeyHash   String?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
 
   notices              Notice[]
   loginLogs            UserLoginLog[]
   pageUsageLogs        UserPageUsageLog[]
+  selfReportStaff      SelfReportStaff?
 
   @@index([roleId])
+  @@index([selfReportInstitutionId])
 }
 
 enum LoginLogStatus {
@@ -395,6 +400,7 @@ model ExternalApiConfig {
   endpointUrl String?
   apiKey      String?  @db.Text
   enabled     Boolean  @default(false)
+  extraConfig Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -557,4 +563,171 @@ model InvestmentDisclosureRecord {
   @@index([disclosureYear])
   @@index([category1])
   @@index([yearLabel])
+}
+
+enum SelfReportStatus {
+  RECEIVED
+  ADMIN_ASSIGNED
+  TIER1_PROCESSING
+  TIER2_ASSIGNMENT
+  TIER2_PROCESSING
+  TRANSFERRED
+  COMPLETED
+  CLOSED
+  UNPROCESSABLE
+  UNPROCESSABLE_PENDING
+  RETURNED_TO_ADMIN
+}
+
+enum SelfReportIntakeDecision {
+  PROCESS
+  UNPROCESSABLE
+  RETURN_TO_ADMIN
+  ALREADY_COMPLETED
+}
+
+enum SelfReportProcessingPath {
+  TIER2_ASSIGN
+  DIRECT_INPUT
+}
+
+enum SelfReportAssignmentType {
+  ADMIN_TO_INSTITUTION
+  TIER1_TO_TIER2
+  TIER1_TO_REGIONAL
+  TIER2_TRANSFER
+}
+
+enum SelfReportAttachmentKind {
+  CASE
+  RESULT
+  PRIOR_COMPLETION
+}
+
+/// 자율보고 처리 — 기관 (관리자 지정, 기관별 인증키)
+model SelfReportInstitution {
+  id          Int      @id @default(autoincrement())
+  name        String
+  code        String   @unique
+  authKeyHash String
+  regionalHq  String?
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  staff SelfReportStaff[]
+  cases SelfReportCase[]
+  users User[]
+}
+
+/// 자율보고 처리 — 1차 기관담당 / 2차 실무담당
+model SelfReportStaff {
+  id            Int                   @id @default(autoincrement())
+  institutionId Int
+  institution   SelfReportInstitution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  userId        Int?                  @unique
+  user          User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name          String
+  phone         String?
+  email         String?
+  tier          Int
+  enabled       Boolean               @default(true)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  assignedCases   SelfReportCase[]       @relation("CaseAssignee")
+  unprocessableConfirmCases SelfReportCase[] @relation("UnprocessableTier1Confirm")
+  assignmentsFrom SelfReportAssignment[] @relation("AssignmentFrom")
+  assignmentsTo   SelfReportAssignment[] @relation("AssignmentTo")
+
+  @@index([institutionId])
+  @@index([tier])
+}
+
+/// 자율보고 민원 건
+model SelfReportCase {
+  id              Int                    @id @default(autoincrement())
+  receiptNumber   String                 @unique
+  title           String
+  content         String                 @db.Text
+  reporterName    String?
+  reporterPhone   String?
+  location        String?
+  status          SelfReportStatus       @default(RECEIVED)
+  institutionId   Int?
+  institution     SelfReportInstitution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  assigneeStaffId Int?
+  assigneeStaff   SelfReportStaff?       @relation("CaseAssignee", fields: [assigneeStaffId], references: [id], onDelete: SetNull)
+  regionalHq      String?
+  processingPlanDate    DateTime?
+  processingPlanContent String?                @db.Text
+  processingResultDate    DateTime?
+  processingResultContent String?                @db.Text
+  intakeDecision          SelfReportIntakeDecision?
+  processingPath          SelfReportProcessingPath?
+  priorCompletionDate     DateTime?
+  priorCompletionContent  String?                @db.Text
+  unprocessableReason     String?                @db.Text
+  unprocessableTier1StaffId Int?
+  unprocessableTier1Staff   SelfReportStaff?     @relation("UnprocessableTier1Confirm", fields: [unprocessableTier1StaffId], references: [id], onDelete: SetNull)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  assignments SelfReportAssignment[]
+  histories   SelfReportHistory[]
+  attachments SelfReportAttachment[]
+
+  @@index([status])
+  @@index([institutionId])
+  @@index([assigneeStaffId])
+}
+
+/// 자율보고 배정·이첩 이력
+model SelfReportAssignment {
+  id              Int                      @id @default(autoincrement())
+  caseId          Int
+  case            SelfReportCase           @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  assignmentType  SelfReportAssignmentType
+  fromStaffId     Int?
+  fromStaff       SelfReportStaff?         @relation("AssignmentFrom", fields: [fromStaffId], references: [id], onDelete: SetNull)
+  toStaffId       Int?
+  toStaff         SelfReportStaff?         @relation("AssignmentTo", fields: [toStaffId], references: [id], onDelete: SetNull)
+  toInstitutionId Int?
+  toRegionalHq    String?
+  note            String?                  @db.Text
+  adminUserId     Int?
+  smsSent         Boolean                  @default(false)
+  createdAt       DateTime                 @default(now())
+
+  @@index([caseId])
+}
+
+/// 자율보고 처리 이력
+model SelfReportHistory {
+  id        Int            @id @default(autoincrement())
+  caseId    Int
+  case      SelfReportCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  action    String
+  note      String?        @db.Text
+  actorName String?
+  actorRole String?
+  createdAt DateTime       @default(now())
+
+  @@index([caseId])
+}
+
+/// 자율보고 민원 첨부파일
+model SelfReportAttachment {
+  id         Int                      @id @default(autoincrement())
+  caseId     Int
+  case       SelfReportCase           @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  kind       SelfReportAttachmentKind @default(CASE)
+  fileName   String
+  storedName String
+  mimeType   String
+  fileSize   Int
+  url        String
+  createdAt  DateTime       @default(now())
+
+  @@index([caseId])
 }

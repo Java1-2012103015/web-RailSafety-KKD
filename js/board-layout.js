@@ -50,6 +50,9 @@ const PORTAL_SECTIONS = [
       if (current.startsWith("/dashboard/pre-flood-alert")) {
         return "/dashboard/pre-flood-alert";
       }
+      if (current.startsWith("/dashboard/self-report")) {
+        return "/dashboard/self-report";
+      }
       return "/dashboard/accidents";
     },
     findMenu(menus) {

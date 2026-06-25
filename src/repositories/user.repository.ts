@@ -9,21 +9,36 @@ export class UserRepository {
     });
   }
 
+  findByEmailForSelfReport(email: string) {
+    return prisma.user.findUnique({
+      where: { email: email.trim() },
+      include: {
+        role: { select: { name: true } },
+        selfReportInstitution: { select: { id: true, name: true, code: true } },
+      },
+    });
+  }
+
   create(params: {
     email: string;
     password: string;
     name: string;
     roleId: number;
     affiliation?: string | null;
+    selfReportInstitutionId?: number | null;
+    selfReportAuthKeyHash?: string | null;
     ipRestrictionEnabled?: boolean;
     allowedIp?: string | null;
   }): Promise<User> {
     return prisma.user.create({ data: params });
   }
 
-  findAll(): Promise<(User & { role: { id: number; name: string } })[]> {
+  findAll() {
     return prisma.user.findMany({
-      include: { role: { select: { id: true, name: true } } },
+      include: {
+        role: { select: { id: true, name: true } },
+        selfReportInstitution: { select: { id: true, name: true, code: true } },
+      },
       orderBy: { id: "asc" },
     });
   }
@@ -34,6 +49,13 @@ export class UserRepository {
     });
   }
 
+  findByIdWithRole(id: number) {
+    return prisma.user.findUnique({
+      where: { id },
+      include: { role: { select: { name: true } } },
+    });
+  }
+
   update(
     id: number,
     params: {
@@ -41,6 +63,8 @@ export class UserRepository {
       email?: string;
       roleId?: number;
       password?: string;
+      selfReportInstitutionId?: number | null;
+      selfReportAuthKeyHash?: string | null;
       ipRestrictionEnabled?: boolean;
       allowedIp?: string | null;
     },

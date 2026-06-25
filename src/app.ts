@@ -11,6 +11,7 @@ import noticeRoutes from "./routes/notice.routes";
 import investmentDisclosureRoutes from "./routes/investment-disclosure.routes";
 import floodAlertRoutes from "./routes/flood-alert.routes";
 import usageLogRoutes from "./routes/usage-log.routes";
+import selfReportRoutes from "./routes/self-report.routes";
 import { errorHandler } from "./middlewares/error.middleware";
 
 const app = express();
@@ -98,6 +99,10 @@ app.get("/flood-alert", (_req, res) => {
   res.sendFile(path.join(projectRoot, "flood-alert.html"));
 });
 
+app.get("/dashboard/self-report", (_req, res) => {
+  res.sendFile(path.join(projectRoot, "self-report-dashboard.html"));
+});
+
 const adminPages = [
   "/admin",
   "/admin/users",
@@ -114,6 +119,8 @@ const adminPages = [
   "/admin/accident-db-publication",
   "/admin/investment-disclosure",
   "/admin/flood-alert",
+  "/admin/self-report",
+  "/admin/external-apis/sms",
 ];
 for (const route of adminPages) {
   app.get(route, (_req, res) => {
@@ -136,6 +143,7 @@ app.use("/api/branding", brandingRoutes);
 app.use("/api/investment-disclosure", investmentDisclosureRoutes);
 app.use("/api/flood-alert", floodAlertRoutes);
 app.use("/api/usage", usageLogRoutes);
+app.use("/api/self-report", selfReportRoutes);
 
 app.use(express.static(projectRoot, { index: false }));
 

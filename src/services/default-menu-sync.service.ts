@@ -45,6 +45,7 @@ async function upsertChildMenu(
 
 function isGuestScopedMenuPath(path: string | null): boolean {
   const value = path ?? "";
+  if (value === "/dashboard/self-report") return false;
   return (
     value.startsWith("/dashboard") ||
     value.startsWith("/accidents") ||
@@ -56,7 +57,7 @@ function isGuestScopedMenuPath(path: string | null): boolean {
 }
 
 async function syncGuestScopedMenuPermissions(): Promise<void> {
-  const scopedMenus = await prisma.menu.findMany({
+  const scopedMenus = (await prisma.menu.findMany({
     where: {
       OR: [
         { path: { startsWith: "/dashboard" } },
@@ -67,7 +68,7 @@ async function syncGuestScopedMenuPermissions(): Promise<void> {
         { path: { startsWith: "/archive" } },
       ],
     },
-  });
+  })).filter((menu) => isGuestScopedMenuPath(menu.path));
 
   if (!scopedMenus.length) return;
 
@@ -135,6 +136,7 @@ export async function syncDefaultMenus(): Promise<void> {
   await upsertChildMenu(dashboard.id, "철도사고·장애", "/dashboard/accidents", 1);
   await upsertChildMenu(dashboard.id, "철도안전투자공시", "/dashboard/investment-disclosure", 2);
   await upsertChildMenu(dashboard.id, "철도시설사전침수경보", "/dashboard/pre-flood-alert", 3);
+  await upsertChildMenu(dashboard.id, "자율보고 처리", "/dashboard/self-report", 4);
 
   await upsertChildMenu(board.id, "공지사항", "/notices", 1);
   await upsertChildMenu(board.id, "자료실", "/archive", 2);
@@ -162,7 +164,16 @@ export async function syncDefaultMenus(): Promise<void> {
     },
   });
 
+  await revokeNonAdminSelfReportMenuAccess();
+
   await syncGuestScopedMenuPermissions();
+}
+
+async function revokeNonAdminSelfReportMenuAccess(): Promise<void> {
+  const menu = await prisma.menu.findFirst({ where: { path: "/dashboard/self-report" } });
+  if (!menu) return;
+
+  await prisma.roleMenuPermission.deleteMany({ where: { menuId: menu.id } });
 }
 
 export { isGuestScopedMenuPath };

@@ -236,7 +236,7 @@ async function main(): Promise<void> {
     .filter((menu) => {
       const path = menu.path ?? "";
       return (
-        path.startsWith("/dashboard") ||
+        (path.startsWith("/dashboard") && path !== "/dashboard/self-report") ||
         path.startsWith("/accidents") ||
         path.startsWith("/investment-disclosure") ||
         path.startsWith("/flood-alert") ||
@@ -479,6 +479,44 @@ async function main(): Promise<void> {
   if (seededInvestment) {
     // eslint-disable-next-line no-console
     console.log(`Investment disclosure: seeded ${DEFAULT_INVESTMENT_DISCLOSURE_ROWS.length} default records.`);
+  }
+
+  const demoInstitution = await prisma.selfReportInstitution.upsert({
+    where: { code: "DEMO001" },
+    update: {},
+    create: {
+      name: "데모철도기관",
+      code: "DEMO001",
+      authKeyHash: await hashPassword("demo-key"),
+      regionalHq: "수도권본부",
+      enabled: true,
+    },
+  });
+
+  const existingStaff = await prisma.selfReportStaff.count({ where: { institutionId: demoInstitution.id } });
+  if (existingStaff === 0) {
+    await prisma.selfReportStaff.createMany({
+      data: [
+        { institutionId: demoInstitution.id, name: "김기관담당", phone: "01012345678", email: "tier1@demo.kr", tier: 1, enabled: true },
+        { institutionId: demoInstitution.id, name: "이실무", phone: "01098765432", email: "tier2@demo.kr", tier: 2, enabled: true },
+        { institutionId: demoInstitution.id, name: "박실무", phone: "01055556666", email: "tier2b@demo.kr", tier: 2, enabled: true },
+      ],
+    });
+  }
+
+  const existingCase = await prisma.selfReportCase.findUnique({ where: { receiptNumber: "SR-DEMO-0001" } });
+  if (!existingCase) {
+    await prisma.selfReportCase.create({
+      data: {
+        receiptNumber: "SR-DEMO-0001",
+        title: "선로 주변 낙석 위험 신고",
+        content: "○○역 인근 선로 옆 절벽에서 낙석 흔적이 확인되어 자율보고합니다.",
+        reporterName: "시민신고",
+        reporterPhone: "01011112222",
+        location: "○○역 부근",
+        status: "RECEIVED",
+      },
+    });
   }
 }
 

@@ -3,6 +3,7 @@ export const EXTERNAL_API_TYPES = {
   MAP_ADDRESS: "MAP_ADDRESS",
   WEATHER: "WEATHER",
   NEWS: "NEWS",
+  SMS: "SMS",
 } as const;
 
 export type ExternalApiType = (typeof EXTERNAL_API_TYPES)[keyof typeof EXTERNAL_API_TYPES];
@@ -33,6 +34,11 @@ export const EXTERNAL_API_DEFAULTS: Array<{
     apiType: EXTERNAL_API_TYPES.NEWS,
     name: "기상·재난 뉴스 API",
     endpointUrl: "https://openapi.naver.com/v1/search/news",
+  },
+  {
+    apiType: EXTERNAL_API_TYPES.SMS,
+    name: "문자(SMS) 알림 API",
+    endpointUrl: "",
   },
 ];
 

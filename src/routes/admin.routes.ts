@@ -15,6 +15,7 @@ import adminFloodAlertRoutes from "./admin-flood-alert.routes";
 import adminAccidentDbPublicationRoutes from "./admin-accident-db-publication.routes";
 import adminLoginLogRoutes from "./admin-login-log.routes";
 import adminUsageLogRoutes from "./admin-usage-log.routes";
+import adminSelfReportRoutes from "./admin-self-report.routes";
 
 const router = Router();
 
@@ -37,5 +38,6 @@ router.use("/", adminFloodAlertRoutes);
 router.use("/", adminAccidentDbPublicationRoutes);
 router.use("/", adminLoginLogRoutes);
 router.use("/", adminUsageLogRoutes);
+router.use("/self-report", adminSelfReportRoutes);
 
 export default router;

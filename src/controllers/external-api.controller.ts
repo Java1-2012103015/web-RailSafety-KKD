@@ -16,16 +16,18 @@ export class ExternalApiController {
   updateConfig = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const apiTypeParam = Array.isArray(req.params.apiType) ? req.params.apiType[0] : req.params.apiType;
-      const { endpointUrl, apiKey, enabled } = req.body as {
+      const { endpointUrl, apiKey, enabled, extraConfig } = req.body as {
         endpointUrl?: string | null;
         apiKey?: string | null;
         enabled?: boolean;
+        extraConfig?: unknown | null;
       };
 
       const data = await this.externalApiService.updateConfig(apiTypeParam, {
         endpointUrl,
         apiKey,
         enabled,
+        extraConfig,
       });
 
       res.status(200).json({ message: "External API config saved.", data });

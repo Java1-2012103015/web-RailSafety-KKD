@@ -34,6 +34,7 @@ export class ExternalApiService {
       endpointUrl?: string | null;
       apiKey?: string | null;
       enabled?: boolean;
+      extraConfig?: unknown | null;
     },
   ) {
     if (!isExternalApiType(apiTypeRaw)) {
@@ -50,12 +51,15 @@ export class ExternalApiService {
       input.endpointUrl !== undefined ? input.endpointUrl?.trim() || null : (existing?.endpointUrl ?? null);
     const apiKey = input.apiKey !== undefined ? input.apiKey?.trim() || null : (existing?.apiKey ?? null);
     const enabled = input.enabled ?? existing?.enabled ?? false;
+    const extraConfig =
+      input.extraConfig !== undefined ? input.extraConfig : (existing?.extraConfig ?? null);
 
     return this.externalApiRepository.upsert(apiType, {
       name: defaults?.name ?? existing?.name ?? apiType,
       endpointUrl,
       apiKey,
       enabled,
+      extraConfig,
     });
   }
 }

@@ -23,6 +23,7 @@ export class ExternalApiRepository {
       endpointUrl?: string | null;
       apiKey?: string | null;
       enabled?: boolean;
+      extraConfig?: unknown | null;
     },
   ) {
     return this.db.externalApiConfig.upsert({
@@ -32,6 +33,7 @@ export class ExternalApiRepository {
         endpointUrl: data.endpointUrl ?? null,
         apiKey: data.apiKey ?? null,
         enabled: data.enabled ?? false,
+        ...(data.extraConfig !== undefined ? { extraConfig: data.extraConfig } : {}),
       },
       create: {
         apiType,
@@ -39,6 +41,7 @@ export class ExternalApiRepository {
         endpointUrl: data.endpointUrl ?? null,
         apiKey: data.apiKey ?? null,
         enabled: data.enabled ?? false,
+        extraConfig: data.extraConfig ?? null,
       },
     });
   }

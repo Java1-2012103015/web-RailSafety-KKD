@@ -98,8 +98,10 @@ function routeToPanel() {
   document.getElementById("panel-external-apis").classList.add("hidden");
   document.getElementById("panel-external-apis-weather").classList.add("hidden");
   document.getElementById("panel-external-apis-news").classList.add("hidden");
+  document.getElementById("panel-external-apis-sms").classList.add("hidden");
   document.getElementById("panel-investment-disclosure").classList.add("hidden");
   document.getElementById("panel-flood-alert").classList.add("hidden");
+  document.getElementById("panel-self-report").classList.add("hidden");
   document.getElementById("panel-accident-db-publication").classList.add("hidden");
   document.getElementById("panel-registrations").classList.add("hidden");
   document.getElementById("panel-login-logs").classList.add("hidden");
@@ -116,8 +118,10 @@ function routeToPanel() {
   document.getElementById("tab-link-external-apis").classList.remove("active-tab");
   document.getElementById("tab-link-external-apis-weather").classList.remove("active-tab");
   document.getElementById("tab-link-external-apis-news").classList.remove("active-tab");
+  document.getElementById("tab-link-external-apis-sms").classList.remove("active-tab");
   document.getElementById("tab-link-investment-disclosure").classList.remove("active-tab");
   document.getElementById("tab-link-flood-alert").classList.remove("active-tab");
+  document.getElementById("tab-link-self-report").classList.remove("active-tab");
   document.getElementById("tab-link-accident-db-publication").classList.remove("active-tab");
   document.getElementById("tab-link-login-logs").classList.remove("active-tab");
   document.getElementById("tab-link-usage-stats").classList.remove("active-tab");
@@ -183,6 +187,11 @@ function routeToPanel() {
     document.getElementById("tab-link-flood-alert").classList.add("active-tab");
     document.getElementById("admin-header-title").textContent = "관리자 포털 · 철도시설침수경보 DB";
     loadFloodAlertTab();
+  } else if (path === "/admin/self-report") {
+    document.getElementById("panel-self-report").classList.remove("hidden");
+    document.getElementById("tab-link-self-report").classList.add("active-tab");
+    document.getElementById("admin-header-title").textContent = "관리자 포털 · 자율보고 기관·담당";
+    loadSelfReportAdminTab();
   } else if (path === "/admin/external-apis/weather") {
     document.getElementById("panel-external-apis-weather").classList.remove("hidden");
     document.getElementById("tab-link-external-apis-weather").classList.add("active-tab");
@@ -194,6 +203,11 @@ function routeToPanel() {
     document.getElementById("admin-header-title").textContent = "관리자 포털 · 외부 API · 뉴스";
     loadExternalApisTab(["NEWS"]);
     loadFloodNewsKeywords();
+  } else if (path === "/admin/external-apis/sms") {
+    document.getElementById("panel-external-apis-sms").classList.remove("hidden");
+    document.getElementById("tab-link-external-apis-sms").classList.add("active-tab");
+    document.getElementById("admin-header-title").textContent = "관리자 포털 · 외부 API · 문자(SMS)";
+    loadExternalApisTab(["SMS"]);
   } else if (path === "/admin/external-apis") {
     document.getElementById("panel-external-apis").classList.remove("hidden");
     document.getElementById("tab-link-external-apis").classList.add("active-tab");
@@ -210,7 +224,7 @@ function routeToPanel() {
 
 // Bind navigation click intercepts
 function initRouter() {
-  const links = ["tab-link-branding", "tab-link-users", "tab-link-login-logs", "tab-link-usage-stats", "tab-link-registrations", "tab-link-menus", "tab-link-roles", "tab-link-codes", "tab-link-code-relations", "tab-link-accident-db-publication", "tab-link-investment-disclosure", "tab-link-flood-alert", "tab-link-external-apis", "tab-link-external-apis-weather", "tab-link-external-apis-news"];
+  const links = ["tab-link-branding", "tab-link-users", "tab-link-login-logs", "tab-link-usage-stats", "tab-link-registrations", "tab-link-menus", "tab-link-roles", "tab-link-codes", "tab-link-code-relations", "tab-link-accident-db-publication", "tab-link-investment-disclosure", "tab-link-flood-alert", "tab-link-self-report", "tab-link-external-apis", "tab-link-external-apis-weather", "tab-link-external-apis-news", "tab-link-external-apis-sms"];
   links.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
@@ -488,12 +502,63 @@ async function loadBrandingTab() {
 // TAB 2: USER MANAGEMENT
 // ==========================================
 let usersList = [];
+let selfReportInstitutionsList = [];
+const SELF_REPORT_ROLE_NAMES = ["SELF_REPORT_TIER1", "SELF_REPORT_TIER2"];
+
+function isSelfReportRoleId(roleId) {
+  const role = rolesList.find((r) => r.id === Number(roleId));
+  return Boolean(role && SELF_REPORT_ROLE_NAMES.includes(role.name));
+}
+
+function syncUserInstitutionField() {
+  const roleId = document.getElementById("field-user-role")?.value;
+  const wrap = document.getElementById("field-user-institution-wrap");
+  const select = document.getElementById("field-user-institution");
+  const pwdLabel = document.querySelector('label[for="field-user-password"]');
+  const pwdInput = document.getElementById("field-user-password");
+  const pwdHint = document.getElementById("field-user-password-hint");
+  if (!wrap || !select) return;
+  const show = isSelfReportRoleId(roleId);
+  wrap.classList.toggle("hidden", !show);
+  select.required = show;
+  if (!show) {
+    select.value = "";
+  }
+  if (pwdLabel) {
+    pwdLabel.textContent = show ? "인증키 (자율보고 로그인)" : "비밀번호 (Password)";
+  }
+  if (pwdInput) {
+    pwdInput.placeholder = show ? "자율보고 로그인용 인증키" : "변경 시에만 입력";
+  }
+  if (pwdHint && show) {
+    pwdHint.textContent = "※ 자율보고 로그인 화면의 인증키와 동일합니다. 비워두면 기존 인증키가 유지됩니다.";
+  }
+}
+
+async function loadSelfReportInstitutionsForUsers() {
+  if (selfReportInstitutionsList.length > 0) return;
+  try {
+    const res = await apiFetch("/api/admin/self-report/institutions", { auth: true });
+    selfReportInstitutionsList = res.data ?? [];
+    const select = document.getElementById("field-user-institution");
+    if (!select) return;
+    select.innerHTML =
+      '<option value="">기관 선택</option>' +
+      selfReportInstitutionsList
+        .map((item) => `<option value="${item.id}">${item.name} (${item.code})</option>`)
+        .join("");
+  } catch (error) {
+    console.error("Failed to load self-report institutions:", error);
+  }
+}
 
 async function loadUsersTab() {
   const tbody = document.getElementById("users-table-body");
-  tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">사용자 목록을 불러오는 중...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-8 text-center text-gray-500">사용자 목록을 불러오는 중...</td></tr>`;
   
   try {
+    await loadSelfReportInstitutionsForUsers();
+
     // Load roles list if not already loaded
     if (rolesList.length === 0) {
       const rolesRes = await apiFetch("/api/admin/roles", { auth: true });
@@ -507,7 +572,7 @@ async function loadUsersTab() {
     usersList = res.data;
 
     if (usersList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">등록된 사용자가 없습니다.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-8 text-center text-gray-500">등록된 사용자가 없습니다.</td></tr>`;
       return;
     }
 
@@ -516,6 +581,9 @@ async function loadUsersTab() {
       const ipLabel = user.ipRestrictionEnabled
         ? `<span class="rounded bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">${user.allowedIp ?? "-"}</span>`
         : `<span class="text-xs text-gray-400">미사용</span>`;
+      const institutionLabel = user.selfReportInstitution
+        ? `<span class="text-xs text-gray-700">${user.selfReportInstitution.name}</span>`
+        : `<span class="text-xs text-gray-400">-</span>`;
       return `
         <tr class="hover:bg-gray-50">
           <td class="px-6 py-4 font-medium text-gray-900">${user.id}</td>
@@ -526,6 +594,7 @@ async function loadUsersTab() {
               ${user.role.name}
             </span>
           </td>
+          <td class="px-6 py-4">${institutionLabel}</td>
           <td class="px-6 py-4">${ipLabel}</td>
           <td class="px-6 py-4 text-gray-500 text-xs">${createdDate}</td>
           <td class="px-6 py-4 text-center">
@@ -555,7 +624,7 @@ async function loadUsersTab() {
     });
 
   } catch (error) {
-    tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-8 text-center text-red-500 font-semibold">로드 실패: ${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-8 text-center text-red-500 font-semibold">로드 실패: ${error.message}</td></tr>`;
   }
 }
 
@@ -588,32 +657,36 @@ function openUserModal(userId = null) {
   status.textContent = "";
   modal.classList.remove("hidden");
 
-  if (userId) {
-    // Edit Mode
-    title.textContent = "회원 정보 수정";
-    emailInput.disabled = true;
-    pwdHint.classList.remove("hidden");
-    pwdInput.placeholder = "변경할 경우에만 새 비밀번호 입력";
-    
-    const user = usersList.find(u => u.id === userId);
-    if (user) {
-      document.getElementById("field-user-id").value = user.id;
-      emailInput.value = user.email;
-      document.getElementById("field-user-name").value = user.name;
-      document.getElementById("field-user-role").value = user.roleId;
-      document.getElementById("field-user-ip-restriction").checked = Boolean(user.ipRestrictionEnabled);
-      document.getElementById("field-user-allowed-ip").value = user.allowedIp ?? "";
+  loadSelfReportInstitutionsForUsers().then(() => {
+    if (userId) {
+      // Edit Mode
+      title.textContent = "회원 정보 수정";
+      emailInput.disabled = true;
+      pwdHint.classList.remove("hidden");
+      pwdInput.placeholder = "변경할 경우에만 새 비밀번호 입력";
+      
+      const user = usersList.find(u => u.id === userId);
+      if (user) {
+        document.getElementById("field-user-id").value = user.id;
+        emailInput.value = user.email;
+        document.getElementById("field-user-name").value = user.name;
+        document.getElementById("field-user-role").value = user.roleId;
+        document.getElementById("field-user-institution").value = user.selfReportInstitutionId ?? "";
+        document.getElementById("field-user-ip-restriction").checked = Boolean(user.ipRestrictionEnabled);
+        document.getElementById("field-user-allowed-ip").value = user.allowedIp ?? "";
+      }
+    } else {
+      // Create Mode
+      title.textContent = "신규 회원 등록";
+      emailInput.disabled = false;
+      pwdHint.classList.add("hidden");
+      pwdInput.placeholder = "비밀번호 입력";
+      document.getElementById("field-user-id").value = "";
     }
-  } else {
-    // Create Mode
-    title.textContent = "신규 회원 등록";
-    emailInput.disabled = false;
-    pwdHint.classList.add("hidden");
-    pwdInput.placeholder = "비밀번호 입력";
-    document.getElementById("field-user-id").value = "";
-  }
 
-  syncUserIpFields();
+    syncUserInstitutionField();
+    syncUserIpFields();
+  });
 }
 
 function closeUserModal() {
@@ -626,11 +699,19 @@ async function saveUserSubmit() {
   const name = document.getElementById("field-user-name").value.trim();
   const password = document.getElementById("field-user-password").value;
   const roleId = Number(document.getElementById("field-user-role").value);
+  const institutionRaw = document.getElementById("field-user-institution").value;
+  const selfReportInstitutionId = institutionRaw ? Number(institutionRaw) : null;
   const { ipRestrictionEnabled, allowedIp } = readUserIpSettings();
   const status = document.getElementById("modal-user-status");
 
   if (!email || !name) {
     status.textContent = "이메일과 이름을 입력해주세요.";
+    status.className = "text-xs text-red-600 font-semibold";
+    return;
+  }
+
+  if (isSelfReportRoleId(roleId) && !selfReportInstitutionId) {
+    status.textContent = "자율보고 권한 사용자는 담당 기관을 선택해주세요.";
     status.className = "text-xs text-red-600 font-semibold";
     return;
   }
@@ -644,6 +725,10 @@ async function saveUserSubmit() {
   status.textContent = "저장 중...";
   status.className = "text-xs text-gray-500";
 
+  const institutionPayload = isSelfReportRoleId(roleId)
+    ? { selfReportInstitutionId }
+    : { selfReportInstitutionId: null };
+
   try {
     if (idVal) {
       // Update
@@ -651,7 +736,7 @@ async function saveUserSubmit() {
       await apiFetch(`/api/admin/users/${id}`, {
         auth: true,
         method: "PUT",
-        body: { name, roleId, password: password || undefined, ipRestrictionEnabled, allowedIp }
+        body: { name, roleId, password: password || undefined, ipRestrictionEnabled, allowedIp, ...institutionPayload }
       });
     } else {
       // Create / Sign up
@@ -664,7 +749,7 @@ async function saveUserSubmit() {
       await apiFetch("/api/admin/users", {
         auth: true,
         method: "POST",
-        body: { email, password, name, roleId, ipRestrictionEnabled, allowedIp },
+        body: { email, password, name, roleId, ipRestrictionEnabled, allowedIp, ...institutionPayload },
       });
     }
 
@@ -3846,7 +3931,92 @@ function fillExternalApiForm(config) {
   document.getElementById(`external-api-enabled-${apiType}`).checked = Boolean(config.enabled);
   document.getElementById(`external-api-endpoint-${apiType}`).value = config.endpointUrl ?? "";
   document.getElementById(`external-api-key-${apiType}`).value = config.apiKey ?? "";
+  const smsTemplateKeys = [
+    "ADMIN_TO_INSTITUTION",
+    "TIER1_TO_TIER2",
+    "TIER2_TRANSFER",
+    "TIER1_UNPROCESSABLE_REQUEST",
+    "REPORTER_TIER1_ASSIGNED",
+    "REPORTER_PLAN_ESTABLISHED",
+    "REPORTER_COMPLETED",
+    "REPORTER_UNPROCESSABLE",
+  ];
+  if (apiType === "SMS" && config.extraConfig?.templates) {
+    const templates = config.extraConfig.templates;
+    smsTemplateKeys.forEach((key) => {
+      const el = document.getElementById(`sms-template-${key}`);
+      if (el && templates[key]) el.value = templates[key];
+    });
+  }
+  if (apiType === "SMS") {
+    const dashboardUrlEl = document.getElementById("sms-self-report-dashboard-url");
+    if (dashboardUrlEl) {
+      dashboardUrlEl.value = config.extraConfig?.selfReportDashboardUrl ?? "";
+    }
+    const defaults = {
+      ADMIN_TO_INSTITUTION:
+        "[자율보고] {receiptNumber} 민원 배정 안내\n" +
+        "이메일 ; {email}\n" +
+        "패스키 ; {authKey}\n" +
+        "접속 사이트 | {dashboardUrl}\n" +
+        "로 접속하여 확인하시기 바랍니다.\n" +
+        "(배정자 ; {assignerName} (배정자 이메일 ; {assignerEmail}))",
+      TIER1_TO_TIER2:
+        "[자율보고] {receiptNumber} 민원 배정 안내\n" +
+        "이메일 ; {email}\n" +
+        "패스키 ; {authKey}\n" +
+        "접속 사이트 | {dashboardUrl}\n" +
+        "로 접속하여 확인하시기 바랍니다.\n" +
+        "(배정자 ; {assignerName} (배정자 이메일 ; {assignerEmail}))",
+      TIER2_TRANSFER:
+        "[자율보고] {receiptNumber} 민원 이첩 안내\n" +
+        "이첩사유 ; {transferReason}\n" +
+        "이메일 ; {email}\n" +
+        "패스키 ; {authKey}\n" +
+        "접속 사이트 | {dashboardUrl}\n" +
+        "로 접속하여 확인하시기 바랍니다.\n" +
+        "(배정자 ; {assignerName} (배정자 이메일 ; {assignerEmail}))",
+      TIER1_UNPROCESSABLE_REQUEST:
+        "[자율보고] {receiptNumber} 민원 처리불가 검토 요청\n" +
+        "처리불가 사유 ; {unprocessableReason}\n" +
+        "접속 사이트 | {dashboardUrl}\n" +
+        "대시보드에서 확인 후 처리해 주세요.",
+      REPORTER_TIER1_ASSIGNED:
+        "[자율보고] {receiptNumber} 민원이 {institutionName}에 배정되어 처리가 시작됩니다.",
+      REPORTER_PLAN_ESTABLISHED:
+        "[자율보고] {receiptNumber} 민원의 조치계획이 수립되었습니다. 계획일: {processingPlanDate}",
+      REPORTER_COMPLETED:
+        "[자율보고] {receiptNumber} 민원 처리가 완료되었습니다. 완료일: {processingResultDate}",
+      REPORTER_UNPROCESSABLE:
+        "[자율보고] {receiptNumber} 민원은 처리불가로 종결되었습니다.\n사유 ; {unprocessableReason}",
+    };
+    smsTemplateKeys.forEach((key) => {
+      const el = document.getElementById(`sms-template-${key}`);
+      if (el && !el.value.trim()) el.value = defaults[key];
+    });
+  }
   updateExternalApiStatusBadge(apiType, config);
+}
+
+function readSmsTemplatesFromForm() {
+  return {
+    ADMIN_TO_INSTITUTION: document.getElementById("sms-template-ADMIN_TO_INSTITUTION")?.value.trim() ?? "",
+    TIER1_TO_TIER2: document.getElementById("sms-template-TIER1_TO_TIER2")?.value.trim() ?? "",
+    TIER2_TRANSFER: document.getElementById("sms-template-TIER2_TRANSFER")?.value.trim() ?? "",
+    TIER1_UNPROCESSABLE_REQUEST:
+      document.getElementById("sms-template-TIER1_UNPROCESSABLE_REQUEST")?.value.trim() ?? "",
+    REPORTER_TIER1_ASSIGNED: document.getElementById("sms-template-REPORTER_TIER1_ASSIGNED")?.value.trim() ?? "",
+    REPORTER_PLAN_ESTABLISHED: document.getElementById("sms-template-REPORTER_PLAN_ESTABLISHED")?.value.trim() ?? "",
+    REPORTER_COMPLETED: document.getElementById("sms-template-REPORTER_COMPLETED")?.value.trim() ?? "",
+    REPORTER_UNPROCESSABLE: document.getElementById("sms-template-REPORTER_UNPROCESSABLE")?.value.trim() ?? "",
+  };
+}
+
+function readSmsExtraConfigFromForm() {
+  return {
+    templates: readSmsTemplatesFromForm(),
+    selfReportDashboardUrl: document.getElementById("sms-self-report-dashboard-url")?.value.trim() ?? "",
+  };
 }
 
 async function loadExternalApisTab(apiTypes = null) {
@@ -3876,10 +4046,15 @@ async function saveExternalApiConfig(apiType, event) {
   }
 
   try {
+    const body = { endpointUrl, apiKey, enabled };
+    if (apiType === "SMS") {
+      body.extraConfig = readSmsExtraConfigFromForm();
+    }
+
     const result = await apiFetch(`/api/admin/external-apis/${apiType}`, {
       auth: true,
       method: "PUT",
-      body: { endpointUrl, apiKey, enabled },
+      body,
     });
 
     fillExternalApiForm(result.data);
@@ -3927,6 +4102,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-create-user").addEventListener("click", () => openUserModal(null));
   document.getElementById("btn-user-close").addEventListener("click", closeUserModal);
   document.getElementById("form-user").addEventListener("submit", saveUserSubmit);
+  document.getElementById("field-user-role")?.addEventListener("change", syncUserInstitutionField);
   document.getElementById("field-user-ip-restriction")?.addEventListener("change", syncUserIpFields);
 
   // Bind Tab 3: Menu management submit and cancel actions
