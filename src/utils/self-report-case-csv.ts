@@ -21,24 +21,31 @@ export const SELF_REPORT_CASE_SAMPLE_CSV = [
 ].join("\n");
 
 export const MAX_SELF_REPORT_CASE_CSV_ROWS = 200;
+export const MAX_SELF_REPORT_SERIAL_DIGITS = 20;
 
-const FULL_RECEIPT_NUMBER_PATTERN = /^SR-\d{8}-\d{4}$/i;
+const FULL_RECEIPT_NUMBER_PATTERN = new RegExp(
+  `^SR-\\d{8}-\\d{1,${MAX_SELF_REPORT_SERIAL_DIGITS}}$`,
+  "i",
+);
 
 export function normalizeSelfReportSerialNo(value: string): string {
   const digits = value.trim().replace(/\D/g, "");
   if (!digits) {
-    throw new HttpError(400, "일련번호는 숫자 4자리 형식이어야 합니다.");
+    throw new HttpError(400, "일련번호는 숫자여야 합니다.");
   }
-  if (digits.length > 4) {
-    throw new HttpError(400, "일련번호는 4자리 이하여야 합니다.");
+  if (digits.length > MAX_SELF_REPORT_SERIAL_DIGITS) {
+    throw new HttpError(400, `일련번호는 ${MAX_SELF_REPORT_SERIAL_DIGITS}자리 이하여야 합니다.`);
   }
-  return digits.padStart(4, "0");
+  return digits;
 }
 
 export function normalizeSelfReportReceiptNumber(value: string): string {
   const normalized = value.trim().toUpperCase();
   if (!FULL_RECEIPT_NUMBER_PATTERN.test(normalized)) {
-    throw new HttpError(400, "접수번호는 SR-YYYYMMDD-0001 형식이어야 합니다.");
+    throw new HttpError(
+      400,
+      `접수번호는 SR-YYYYMMDD-일련번호 형식이어야 합니다. (일련번호 최대 ${MAX_SELF_REPORT_SERIAL_DIGITS}자리)`,
+    );
   }
   return normalized;
 }

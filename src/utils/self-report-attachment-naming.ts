@@ -1,13 +1,14 @@
 import path from "path";
+import { MAX_SELF_REPORT_SERIAL_DIGITS } from "./self-report-case-csv";
 
-/** 접수번호 SR-YYYYMMDD-0003 → 일련번호 0003 */
+const SERIAL_KEY_PATTERN = `\\d{1,${MAX_SELF_REPORT_SERIAL_DIGITS}}`;
+
+/** 접수번호 SR-YYYYMMDD-0003 → 일련번호(접미 숫자) */
 export function extractSelfReportSerialKey(receiptNumber: string): string {
   const trimmed = receiptNumber.trim();
-  const match = trimmed.match(/-(\d{4})$/);
-  if (match) return match[1];
   const segments = trimmed.split("-");
-  const last = segments[segments.length - 1];
-  return /^\d+$/.test(last) ? last.padStart(4, "0") : trimmed;
+  const last = segments[segments.length - 1] ?? "";
+  return /^\d+$/.test(last) ? last : trimmed;
 }
 
 export type ParsedBulkAttachmentName = {
@@ -23,7 +24,7 @@ export function parseBulkAttachmentFileName(fileName: string): ParsedBulkAttachm
   const extension = path.extname(base);
   const stem = extension ? base.slice(0, -extension.length) : base;
 
-  const fullMatch = stem.match(/^(SR-\d{8}-\d{4})_(\d{2})$/i);
+  const fullMatch = stem.match(new RegExp(`^(SR-\\d{8}-${SERIAL_KEY_PATTERN})_(\\d{2})$`, "i"));
   if (fullMatch) {
     return {
       receiptNumber: fullMatch[1].toUpperCase(),
@@ -32,7 +33,7 @@ export function parseBulkAttachmentFileName(fileName: string): ParsedBulkAttachm
     };
   }
 
-  const shortMatch = stem.match(/^(\d{4})_(\d{2})$/);
+  const shortMatch = stem.match(new RegExp(`^(${SERIAL_KEY_PATTERN})_(\\d{2})$`));
   if (shortMatch) {
     return {
       serialKey: shortMatch[1],

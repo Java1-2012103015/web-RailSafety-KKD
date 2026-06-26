@@ -6,6 +6,7 @@ import type {
   SelfReportStatus,
 } from "@prisma/client";
 import { prisma } from "../config/prisma";
+import { MAX_SELF_REPORT_SERIAL_DIGITS } from "../utils/self-report-case-csv";
 
 export class SelfReportRepository {
   findInstitutionByCode(code: string) {
@@ -188,12 +189,21 @@ export class SelfReportRepository {
   }
 
   findCasesByReceiptSerialKey(serialKey: string) {
-    const normalized = serialKey.trim().padStart(4, "0");
-    return prisma.selfReportCase.findMany({
-      where: { receiptNumber: { endsWith: `-${normalized}` } },
-      select: { id: true, receiptNumber: true },
-      orderBy: { createdAt: "desc" },
-    });
+    const normalized = serialKey.trim().replace(/\D/g, "");
+    if (!normalized || normalized.length > MAX_SELF_REPORT_SERIAL_DIGITS) return Promise.resolve([]);
+
+    return prisma.selfReportCase
+      .findMany({
+        where: { receiptNumber: { endsWith: `-${normalized}` } },
+        select: { id: true, receiptNumber: true },
+        orderBy: { createdAt: "desc" },
+      })
+      .then((cases) =>
+        cases.filter((item) => {
+          const suffix = item.receiptNumber.split("-").pop() ?? "";
+          return suffix === normalized;
+        }),
+      );
   }
 
   listAttachmentFileNamesByCase(caseId: number) {
