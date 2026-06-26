@@ -70,6 +70,13 @@ export class SelfReportRepository {
     });
   }
 
+  findStaffByUserId(userId: number) {
+    return prisma.selfReportStaff.findFirst({
+      where: { userId, enabled: true },
+      include: { institution: true },
+    });
+  }
+
   findStaffByInstitutionEmail(institutionId: number, email: string, tier: number) {
     const normalized = email.trim();
     if (!normalized) return null;

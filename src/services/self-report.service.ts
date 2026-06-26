@@ -15,6 +15,7 @@ import { SmsTemplateService } from "./sms-template.service";
 import type { SmsTemplateType } from "../constants/sms-templates";
 import { SMS_TEMPLATE_TYPES, buildStaffAccountSmsMessage } from "../constants/sms-templates";
 import {
+  isSelfReportRole,
   SelfReportUserSyncService,
 } from "./self-report-user-sync.service";
 import {
@@ -106,6 +107,66 @@ export class SelfReportService {
       staffId: payload.selfReportStaffId,
       staffName: payload.selfReportStaffName,
     };
+  }
+
+  /** JWT·세션과 DB 담당자/기관 정보가 어긋난 경우를 보정합니다. */
+  private async resolveActorContext(payload: SelfReportActor): Promise<ActorContext> {
+    const base = this.actorFromPayload(payload);
+
+    if (base.role === ROLES.ADMIN) {
+      return base;
+    }
+
+    if (!isPortalPayload(payload) && payload.selfReportStaffId) {
+      const staff = await this.selfReportRepository.findStaffById(payload.selfReportStaffId);
+      if (staff?.enabled) {
+        return {
+          ...base,
+          institutionId: staff.institutionId,
+          institutionName: staff.institution?.name ?? base.institutionName,
+          staffId: staff.id,
+          staffName: staff.name ?? base.staffName,
+        };
+      }
+    }
+
+    if (isPortalPayload(payload) && isSelfReportRole(base.role)) {
+      const user = await this.userRepository.findByIdWithRole(payload.userId);
+      if (!user?.selfReportInstitutionId) {
+        return base;
+      }
+
+      const institution = await this.selfReportRepository.findInstitutionById(user.selfReportInstitutionId);
+      let staff = await this.selfReportRepository.findStaffByUserId(user.id);
+      if (!staff) {
+        await this.selfReportUserSyncService.syncStaffFromUser(user);
+        staff = await this.selfReportRepository.findStaffByUserId(user.id);
+      }
+
+      return {
+        ...base,
+        institutionId: user.selfReportInstitutionId,
+        institutionName: institution?.name,
+        staffId: staff?.id,
+        staffName: staff?.name ?? user.name,
+      };
+    }
+
+    return base;
+  }
+
+  private async resolveCaseInstitutionId(item: {
+    institutionId: number | null;
+    assigneeStaffId?: number | null;
+  }): Promise<number | null> {
+    if (item.institutionId) {
+      return item.institutionId;
+    }
+    if (!item.assigneeStaffId) {
+      return null;
+    }
+    const assignee = await this.selfReportRepository.findStaffById(item.assigneeStaffId);
+    return assignee?.institutionId ?? null;
   }
 
   private actorDisplayName(actor: ActorContext): string {
@@ -391,7 +452,7 @@ export class SelfReportService {
   }
 
   async listCases(payload: SelfReportActor, query: { status?: string; search?: string; page?: number; pageSize?: number }) {
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
     const page = Math.max(1, Number(query.page) || 1);
     const pageSize = Math.min(100, Math.max(1, Number(query.pageSize) || 15));
     const status = query.status as SelfReportStatus | undefined;
@@ -445,7 +506,7 @@ export class SelfReportService {
   async getCase(payload: SelfReportActor, caseId: number) {
     const item = await this.selfReportRepository.findCaseById(caseId);
     if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
-    this.assertCaseAccess(payload, item.institutionId, item.assigneeStaffId);
+    await this.assertCaseAccess(payload, item.institutionId, item.assigneeStaffId);
 
     let unprocessableTier1Staff: { id: number; name: string; phone: string | null } | null = null;
     if (item.unprocessableTier1StaffId) {
@@ -468,8 +529,12 @@ export class SelfReportService {
     });
   }
 
-  private assertTier1InstitutionCase(actor: ActorContext, institutionId: number | null) {
-    if (institutionId !== actor.institutionId) {
+  private async assertTier1InstitutionCase(
+    actor: ActorContext,
+    item: { institutionId: number | null; assigneeStaffId?: number | null },
+  ) {
+    const caseInstitutionId = await this.resolveCaseInstitutionId(item);
+    if (!caseInstitutionId || caseInstitutionId !== actor.institutionId) {
       throw new HttpError(403, "소속 기관 보고만 처리할 수 있습니다.");
     }
   }
@@ -501,10 +566,10 @@ export class SelfReportService {
     if (payload.role !== ROLES.SELF_REPORT_TIER1) {
       throw new HttpError(403, "1차 기관담당만 접수 결정을 할 수 있습니다.");
     }
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
     const item = await this.selfReportRepository.findCaseById(caseId);
     if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
-    this.assertTier1InstitutionCase(actor, item.institutionId);
+    await this.assertTier1InstitutionCase(actor, item);
 
     if (item.intakeDecision === "PROCESS" && input.decision === "PROCESS") {
       return this.getCase(payload, caseId);
@@ -564,10 +629,10 @@ export class SelfReportService {
     if (payload.role !== ROLES.SELF_REPORT_TIER1) {
       throw new HttpError(403, "1차 기관담당만 상태를 변경할 수 있습니다.");
     }
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
     const item = await this.selfReportRepository.findCaseById(caseId);
     if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
-    this.assertTier1InstitutionCase(actor, item.institutionId);
+    await this.assertTier1InstitutionCase(actor, item);
 
     if (item.intakeDecision !== "PROCESS") {
       throw new HttpError(400, "접수에서 '처리 결정'을 선택한 보고만 상태를 변경할 수 있습니다.");
@@ -665,10 +730,10 @@ export class SelfReportService {
     if (payload.role !== ROLES.SELF_REPORT_TIER1) {
       throw new HttpError(403, "1차 기관담당만 처리 방법을 선택할 수 있습니다.");
     }
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
     const item = await this.selfReportRepository.findCaseById(caseId);
     if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
-    this.assertTier1InstitutionCase(actor, item.institutionId);
+    await this.assertTier1InstitutionCase(actor, item);
 
     if (item.intakeDecision !== "PROCESS") {
       throw new HttpError(400, "접수에서 '처리 결정'을 선택한 후 진행할 수 있습니다.");
@@ -716,7 +781,7 @@ export class SelfReportService {
     caseId: number,
     input: { processingPlanDate?: string; processingPlanContent?: string },
   ) {
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
     const item = await this.selfReportRepository.findCaseById(caseId);
     if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
 
@@ -725,7 +790,7 @@ export class SelfReportService {
         throw new HttpError(403, "본인에게 배정된 보고만 처리계획을 등록할 수 있습니다.");
       }
     } else if (payload.role === ROLES.SELF_REPORT_TIER1) {
-      this.assertTier1InstitutionCase(actor, item.institutionId);
+      await this.assertTier1InstitutionCase(actor, item);
       if (item.intakeDecision !== "PROCESS" || item.processingPath !== "DIRECT_INPUT") {
         throw new HttpError(400, "'직접 입력'을 선택한 후 조치계획을 등록할 수 있습니다.");
       }
@@ -791,10 +856,10 @@ export class SelfReportService {
     if (payload.role !== ROLES.SELF_REPORT_TIER1) {
       throw new HttpError(403, "1차 기관담당만 기완료 처리를 할 수 있습니다.");
     }
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
     const item = await this.selfReportRepository.findCaseById(caseId);
     if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
-    this.assertTier1InstitutionCase(actor, item.institutionId);
+    await this.assertTier1InstitutionCase(actor, item);
     this.assertIntakeNotFinalized(item.intakeDecision);
 
     const priorCompletionContent = input.priorCompletionContent?.trim() || null;
@@ -877,7 +942,7 @@ export class SelfReportService {
     if (payload.role !== ROLES.SELF_REPORT_TIER2) {
       throw new HttpError(403, "2차 실무담당만 기처리를 등록할 수 있습니다.");
     }
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
     const item = await this.selfReportRepository.findCaseById(caseId);
     if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
     if (item.assigneeStaffId !== actor.staffId) {
@@ -915,15 +980,19 @@ export class SelfReportService {
     return this.getCase(payload, caseId);
   }
 
-  private assertCaseAccess(payload: SelfReportActor, institutionId: number | null, assigneeStaffId: number | null) {
-    const actor = this.actorFromPayload(payload);
+  private async assertCaseAccess(payload: SelfReportActor, institutionId: number | null, assigneeStaffId: number | null) {
+    const actor = await this.resolveActorContext(payload);
+    const caseInstitutionId = await this.resolveCaseInstitutionId({
+      institutionId,
+      assigneeStaffId,
+    });
     if (actor.role === ROLES.ADMIN) return;
     if (actor.role === ROLES.SELF_REPORT_TIER1) {
-      if (institutionId !== actor.institutionId) throw new HttpError(403, "접근 권한이 없습니다.");
+      if (caseInstitutionId !== actor.institutionId) throw new HttpError(403, "접근 권한이 없습니다.");
       return;
     }
     if (actor.role === ROLES.SELF_REPORT_TIER2) {
-      if (institutionId !== actor.institutionId) throw new HttpError(403, "접근 권한이 없습니다.");
+      if (caseInstitutionId !== actor.institutionId) throw new HttpError(403, "접근 권한이 없습니다.");
       if (assigneeStaffId !== actor.staffId) throw new HttpError(403, "배정된 보고만 조회할 수 있습니다.");
       return;
     }
@@ -979,7 +1048,7 @@ export class SelfReportService {
       location: input.location?.trim() || null,
     });
 
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
     await this.selfReportRepository.createHistory({
       caseId,
       action: "보고 내용 수정",
@@ -1001,7 +1070,7 @@ export class SelfReportService {
     }
 
     const rows = parseSelfReportCaseCsv(csv);
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
     const created: Array<{ row: number; receiptNumber: string; title: string }> = [];
 
     for (let i = 0; i < rows.length; i++) {
@@ -1033,7 +1102,7 @@ export class SelfReportService {
       throw new HttpError(400, "한 번에 최대 200개까지 업로드할 수 있습니다.");
     }
 
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
     const uploaded: Array<{ fileName: string; receiptNumber: string; savedAs: string }> = [];
     const errors: Array<{ fileName: string; reason: string }> = [];
     const caseFileNames = new Map<number, string[]>();
@@ -1179,7 +1248,7 @@ export class SelfReportService {
       location: input.location?.trim() || null,
     });
 
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
 
     await this.selfReportRepository.createHistory({
       caseId: created.id,
@@ -1231,7 +1300,7 @@ export class SelfReportService {
     },
   ) {
     if (payload.role !== ROLES.ADMIN) throw new HttpError(403, "관리자만 1차 담당 배정이 가능합니다.");
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
 
     const item = await this.selfReportRepository.findCaseById(caseId);
     if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
@@ -1369,7 +1438,7 @@ export class SelfReportService {
     if (payload.role !== ROLES.SELF_REPORT_TIER1 && payload.role !== ROLES.SELF_REPORT_TIER2) {
       throw new HttpError(403, "기관 담당자만 이메일 중복확인을 할 수 있습니다.");
     }
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
     if (!actor.institutionId) {
       throw new HttpError(400, "기관 정보가 없습니다.");
     }
@@ -1472,7 +1541,7 @@ export class SelfReportService {
     if (payload.role !== ROLES.SELF_REPORT_TIER1 && payload.role !== ROLES.SELF_REPORT_TIER2) {
       throw new HttpError(403, "기관 담당자만 2차 담당자를 등록할 수 있습니다.");
     }
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
     if (!actor.institutionId) {
       throw new HttpError(400, "기관 정보가 없습니다.");
     }
@@ -1605,13 +1674,11 @@ export class SelfReportService {
     if (payload.role !== ROLES.SELF_REPORT_TIER1) {
       throw new HttpError(403, "1차 기관담당만 배정할 수 있습니다.");
     }
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
 
     const item = await this.selfReportRepository.findCaseById(caseId);
     if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
-    if (item.institutionId !== actor.institutionId) {
-      throw new HttpError(403, "소속 기관 보고만 처리할 수 있습니다.");
-    }
+    await this.assertTier1InstitutionCase(actor, item);
     if (item.intakeDecision !== "PROCESS") {
       throw new HttpError(400, "접수에서 '처리 결정'을 선택한 후 진행할 수 있습니다.");
     }
@@ -1707,7 +1774,7 @@ export class SelfReportService {
     if (payload.role !== ROLES.SELF_REPORT_TIER2) {
       throw new HttpError(403, "2차 실무담당만 이첩할 수 있습니다.");
     }
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
 
     const item = await this.selfReportRepository.findCaseById(caseId);
     if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
@@ -1755,7 +1822,7 @@ export class SelfReportService {
     if (payload.role !== ROLES.SELF_REPORT_TIER2) {
       throw new HttpError(403, "2차 실무담당만 처리불가를 요청할 수 있습니다.");
     }
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
     const reason = input.reason?.trim();
     if (!reason) {
       throw new HttpError(400, "처리불가 사유를 입력해 주세요.");
@@ -1819,13 +1886,11 @@ export class SelfReportService {
     if (payload.role !== ROLES.SELF_REPORT_TIER1) {
       throw new HttpError(403, "1차 기관담당만 처리불가를 확정할 수 있습니다.");
     }
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
 
     const item = await this.selfReportRepository.findCaseById(caseId);
     if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
-    if (item.institutionId !== actor.institutionId) {
-      throw new HttpError(403, "소속 기관 보고만 처리할 수 있습니다.");
-    }
+    await this.assertTier1InstitutionCase(actor, item);
     if (item.status !== "UNPROCESSABLE_PENDING") {
       throw new HttpError(400, "처리불가 확인 대기 중인 보고가 아닙니다.");
     }
@@ -1876,7 +1941,7 @@ export class SelfReportService {
     const item = await this.selfReportRepository.findCaseById(caseId);
     if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
 
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
     const normalizedPhone = input.phone?.replace(/\D/g, "") ?? "";
     if (normalizedPhone.length < 10 || normalizedPhone.length > 11) {
       throw new HttpError(400, "휴대폰 번호를 올바르게 입력해 주세요.");
@@ -1887,11 +1952,10 @@ export class SelfReportService {
         throw new HttpError(400, "기관 배정 후 문자를 발송할 수 있습니다.");
       }
     } else if (payload.role === ROLES.SELF_REPORT_TIER1) {
-      if (item.institutionId !== actor.institutionId) {
-        throw new HttpError(403, "소속 기관 보고에만 문자를 발송할 수 있습니다.");
-      }
+      await this.assertTier1InstitutionCase(actor, item);
     } else if (payload.role === ROLES.SELF_REPORT_TIER2) {
-      if (item.assigneeStaffId !== actor.staffId || item.institutionId !== actor.institutionId) {
+      const caseInstitutionId = await this.resolveCaseInstitutionId(item);
+      if (item.assigneeStaffId !== actor.staffId || caseInstitutionId !== actor.institutionId) {
         throw new HttpError(403, "본인에게 배정된 보고에만 문자를 발송할 수 있습니다.");
       }
     } else {
@@ -1960,7 +2024,7 @@ export class SelfReportService {
       files?: Array<{ fileName: string; mimeType: string; data: string }>;
     },
   ) {
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
     const item = await this.selfReportRepository.findCaseById(caseId);
     if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
 
@@ -1969,9 +2033,7 @@ export class SelfReportService {
         throw new HttpError(403, "본인에게 배정된 보고만 처리결과를 등록할 수 있습니다.");
       }
     } else if (payload.role === ROLES.SELF_REPORT_TIER1) {
-      if (item.institutionId !== actor.institutionId) {
-        throw new HttpError(403, "소속 기관 보고만 처리결과를 등록할 수 있습니다.");
-      }
+      await this.assertTier1InstitutionCase(actor, item);
       if (item.intakeDecision !== "PROCESS") {
         throw new HttpError(400, "접수에서 '처리 결정'을 선택한 후 진행할 수 있습니다.");
       }
@@ -2068,7 +2130,7 @@ export class SelfReportService {
   ) {
     const item = await this.selfReportRepository.findCaseById(caseId);
     if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
-    this.assertCaseAccess(payload, item.institutionId, item.assigneeStaffId);
+    await this.assertCaseAccess(payload, item.institutionId, item.assigneeStaffId);
 
     if (!files.length) {
       throw new HttpError(400, "업로드할 파일을 선택해 주세요.");
@@ -2107,7 +2169,7 @@ export class SelfReportService {
       created.push(attachment);
     }
 
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
     await this.selfReportRepository.createHistory({
       caseId,
       action: "첨부파일 등록",
@@ -2135,7 +2197,7 @@ export class SelfReportService {
     await deleteSelfReportAttachmentFile(attachment.url);
     await this.selfReportRepository.deleteAttachment(attachmentId);
 
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
     await this.selfReportRepository.createHistory({
       caseId,
       action: "첨부파일 삭제",
@@ -2150,7 +2212,7 @@ export class SelfReportService {
   async updateStatus(payload: SelfReportActor, caseId: number, input: { status: SelfReportStatus; note?: string }) {
     const item = await this.selfReportRepository.findCaseById(caseId);
     if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
-    this.assertCaseAccess(payload, item.institutionId, item.assigneeStaffId);
+    await this.assertCaseAccess(payload, item.institutionId, item.assigneeStaffId);
 
     if (payload.role === ROLES.SELF_REPORT_TIER2 && !["TIER2_PROCESSING", "TRANSFERRED", "COMPLETED"].includes(input.status)) {
       throw new HttpError(403, "변경할 수 없는 상태입니다.");
@@ -2169,7 +2231,7 @@ export class SelfReportService {
   }
 
   async listStaffForActor(payload: SelfReportActor, institutionId?: number) {
-    const actor = this.actorFromPayload(payload);
+    const actor = await this.resolveActorContext(payload);
     let targetInstitutionId = institutionId;
     if (payload.role === ROLES.ADMIN) {
       if (!targetInstitutionId) throw new HttpError(400, "기관 ID가 필요합니다.");
