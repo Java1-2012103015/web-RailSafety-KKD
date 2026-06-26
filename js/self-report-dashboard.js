@@ -45,6 +45,8 @@ const PROCESSING_PATH_LABELS = {
   DIRECT_INPUT: "직접 입력",
 };
 
+const SR_PLAN_BEFORE_RESULT_HINT = "처리결과 입력을 위해서는 계획을 먼저 입력해야 합니다.";
+
 const srState = {
   session: null,
   cases: [],
@@ -1341,9 +1343,12 @@ function renderTier2ActionChoiceHtml(item) {
           <input type="radio" name="sr-tier2-action" value="TRANSFER" class="sr-tier2-action-radio" ${panel === "TRANSFER" ? "checked" : ""} />
           <span>2차담당자 이첩 <span class="text-gray-500">(기관 내 이첩)</span></span>
         </label>
-        <label class="flex cursor-pointer items-center gap-2">
-          <input type="radio" name="sr-tier2-action" value="PLAN" class="sr-tier2-action-radio" ${panel === "PLAN" ? "checked" : ""} />
-          <span>처리계획 입력</span>
+        <label class="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-1">
+          <span class="inline-flex items-center gap-2">
+            <input type="radio" name="sr-tier2-action" value="PLAN" class="sr-tier2-action-radio" ${panel === "PLAN" ? "checked" : ""} />
+            <span>처리계획 입력</span>
+          </span>
+          <span class="text-xs text-gray-500">${SR_PLAN_BEFORE_RESULT_HINT}</span>
         </label>
         ${resultRadio}
         <label class="flex cursor-pointer items-center gap-2">
@@ -1649,7 +1654,10 @@ function renderTier1DirectInputHtml(item) {
   return `
     <div id="sr-tier1-direct-input" class="mt-4 space-y-3 border-t border-gray-200 pt-4">
       <div class="space-y-2">
-        <p class="text-xs font-bold text-gray-800">조치계획</p>
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <p class="text-xs font-bold text-gray-800">조치계획</p>
+          <span class="text-xs text-gray-500">${SR_PLAN_BEFORE_RESULT_HINT}</span>
+        </div>
         <label class="block text-xs font-semibold text-gray-700" for="sr-direct-plan-date">조치계획일</label>
         <input id="sr-direct-plan-date" type="date" value="${toDateInputValue(item.processingPlanDate)}" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
         <label class="block text-xs font-semibold text-gray-700" for="sr-direct-plan-content">조치계획 내용</label>
