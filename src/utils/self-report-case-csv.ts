@@ -6,17 +6,50 @@ export interface SelfReportCaseCsvInput {
   reporterName?: string;
   reporterPhone?: string;
   location?: string;
+  /** 접수번호 전체 (SR-YYYYMMDD-0003) */
+  receiptNumber?: string;
+  /** 접수번호 일련번호 (0003) — 접수번호 미입력 시 당일 접수번호 생성에 사용 */
+  serialNo?: string;
 }
 
-export const SELF_REPORT_CASE_CSV_HEADER = "제목,내용,신고자명,연락처,위치";
+export const SELF_REPORT_CASE_CSV_HEADER = "일련번호,제목,내용,신고자명,연락처,위치";
 
 export const SELF_REPORT_CASE_SAMPLE_CSV = [
   SELF_REPORT_CASE_CSV_HEADER,
-  "선로 주변 낙석 위험 신고,선로 인근 암반에서 낙석 흔적이 확인되어 신고합니다.,홍길동,010-1234-5678,경북 영주시",
-  "건널목 신호등 고장,건널목 신호등이 점멸하지 않습니다.,김철수,010-9876-5432,전북 익산시",
+  "0001,선로 주변 낙석 위험 신고,선로 인근 암반에서 낙석 흔적이 확인되어 신고합니다.,홍길동,010-1234-5678,경북 영주시",
+  "0002,건널목 신호등 고장,건널목 신호등이 점멸하지 않습니다.,김철수,010-9876-5432,전북 익산시",
 ].join("\n");
 
 export const MAX_SELF_REPORT_CASE_CSV_ROWS = 200;
+
+const FULL_RECEIPT_NUMBER_PATTERN = /^SR-\d{8}-\d{4}$/i;
+
+export function normalizeSelfReportSerialNo(value: string): string {
+  const digits = value.trim().replace(/\D/g, "");
+  if (!digits) {
+    throw new HttpError(400, "일련번호는 숫자 4자리 형식이어야 합니다.");
+  }
+  if (digits.length > 4) {
+    throw new HttpError(400, "일련번호는 4자리 이하여야 합니다.");
+  }
+  return digits.padStart(4, "0");
+}
+
+export function normalizeSelfReportReceiptNumber(value: string): string {
+  const normalized = value.trim().toUpperCase();
+  if (!FULL_RECEIPT_NUMBER_PATTERN.test(normalized)) {
+    throw new HttpError(400, "접수번호는 SR-YYYYMMDD-0001 형식이어야 합니다.");
+  }
+  return normalized;
+}
+
+export function buildReceiptNumberFromSerial(serialNo: string, date = new Date()): string {
+  const serial = normalizeSelfReportSerialNo(serialNo);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `SR-${y}${m}${d}-${serial}`;
+}
 
 function parseCsvRows(text: string): string[][] {
   const lines: string[][] = [];
@@ -72,12 +105,21 @@ export function parseSelfReportCaseCsv(csv?: string): SelfReportCaseCsvInput[] {
   const reporterIdx = headerIndex(headers, ["신고자명", "reportername", "신고자"]);
   const phoneIdx = headerIndex(headers, ["연락처", "reporterphone", "전화번호"]);
   const locationIdx = headerIndex(headers, ["위치", "location"]);
+  const receiptIdx = headerIndex(headers, ["접수번호", "receiptnumber"]);
+  const serialIdx = headerIndex(headers, [
+    "일련번호",
+    "접수번호일련번호",
+    "serialno",
+    "serial",
+  ]);
 
   if (titleIdx === -1 || contentIdx === -1) {
     throw new HttpError(400, "CSV 규격에 필수 칼럼(제목, 내용)이 없습니다.");
   }
 
   const parsed: SelfReportCaseCsvInput[] = [];
+  const receiptNumbersInFile = new Set<string>();
+
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     const title = row[titleIdx]?.trim() ?? "";
@@ -86,12 +128,35 @@ export function parseSelfReportCaseCsv(csv?: string): SelfReportCaseCsvInput[] {
     if (!title || !content) {
       throw new HttpError(400, `${i + 1}행: 제목과 내용은 필수입니다.`);
     }
+
+    const receiptRaw = receiptIdx !== -1 ? row[receiptIdx]?.trim() ?? "" : "";
+    const serialRaw = serialIdx !== -1 ? row[serialIdx]?.trim() ?? "" : "";
+
+    let receiptNumber: string | undefined;
+    let serialNo: string | undefined;
+
+    if (receiptRaw) {
+      receiptNumber = normalizeSelfReportReceiptNumber(receiptRaw);
+    } else if (serialRaw) {
+      serialNo = normalizeSelfReportSerialNo(serialRaw);
+      receiptNumber = buildReceiptNumberFromSerial(serialNo);
+    }
+
+    if (receiptNumber) {
+      if (receiptNumbersInFile.has(receiptNumber)) {
+        throw new HttpError(400, `${i + 1}행: CSV 내 접수번호(${receiptNumber})가 중복됩니다.`);
+      }
+      receiptNumbersInFile.add(receiptNumber);
+    }
+
     parsed.push({
       title,
       content,
       reporterName: reporterIdx !== -1 ? row[reporterIdx]?.trim() || undefined : undefined,
       reporterPhone: phoneIdx !== -1 ? row[phoneIdx]?.trim() || undefined : undefined,
       location: locationIdx !== -1 ? row[locationIdx]?.trim() || undefined : undefined,
+      receiptNumber,
+      serialNo,
     });
   }
 

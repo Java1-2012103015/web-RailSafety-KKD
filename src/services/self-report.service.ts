@@ -26,6 +26,9 @@ import {
 import {
   parseSelfReportCaseCsv,
   SELF_REPORT_CASE_SAMPLE_CSV,
+  buildReceiptNumberFromSerial,
+  normalizeSelfReportReceiptNumber,
+  normalizeSelfReportSerialNo,
 } from "../utils/self-report-case-csv";
 import {
   allocateAttachmentSlotIndexes,
@@ -312,6 +315,26 @@ export class SelfReportService {
     const prefix = `SR-${y}${m}${d}-`;
     const count = await this.selfReportRepository.countCases({});
     return `${prefix}${String(count + 1).padStart(4, "0")}`;
+  }
+
+  private async resolveReceiptNumberForCreate(input: {
+    receiptNumber?: string;
+    serialNo?: string;
+  }): Promise<string> {
+    let receiptNumber: string;
+    if (input.receiptNumber?.trim()) {
+      receiptNumber = normalizeSelfReportReceiptNumber(input.receiptNumber);
+    } else if (input.serialNo?.trim()) {
+      receiptNumber = buildReceiptNumberFromSerial(input.serialNo);
+    } else {
+      return this.generateReceiptNumber();
+    }
+
+    const existing = await this.selfReportRepository.findCaseByReceiptNumber(receiptNumber);
+    if (existing) {
+      throw new HttpError(409, `접수번호 ${receiptNumber}는 이미 사용 중입니다.`);
+    }
+    return receiptNumber;
   }
 
   private async listCaseAttachmentFileNames(caseId: number): Promise<string[]> {
@@ -1071,6 +1094,8 @@ export class SelfReportService {
       reporterName?: string;
       reporterPhone?: string;
       location?: string;
+      receiptNumber?: string;
+      serialNo?: string;
     },
     options?: { historyNote?: string },
   ) {
@@ -1080,7 +1105,10 @@ export class SelfReportService {
       throw new HttpError(400, "제목과 내용은 필수입니다.");
     }
 
-    const receiptNumber = await this.generateReceiptNumber();
+    const receiptNumber = await this.resolveReceiptNumberForCreate({
+      receiptNumber: input.receiptNumber,
+      serialNo: input.serialNo,
+    });
     const created = await this.selfReportRepository.createCase({
       receiptNumber,
       title,
