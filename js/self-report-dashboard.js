@@ -252,6 +252,80 @@ function buildTier1CredentialSmsMessage(pending) {
   });
 }
 
+function renderAdminCaseContentEditHtml(item) {
+  return `
+    <div id="sr-admin-case-edit" class="space-y-3 rounded border border-amber-200 bg-amber-50 p-3">
+      <p class="text-xs font-bold text-gray-800">보고 내용 수정 (관리자)</p>
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-gray-700" for="sr-admin-edit-title">제목</label>
+        <input id="sr-admin-edit-title" type="text" value="${escapeHtml(item.title ?? "")}" class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-gray-700" for="sr-admin-edit-content">내용</label>
+        <textarea id="sr-admin-edit-content" rows="6" class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm">${escapeHtml(item.content ?? "")}</textarea>
+      </div>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-xs font-semibold text-gray-700" for="sr-admin-edit-reporter">신고자명</label>
+          <input id="sr-admin-edit-reporter" type="text" value="${escapeHtml(item.reporterName ?? "")}" class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-semibold text-gray-700" for="sr-admin-edit-phone">연락처</label>
+          <input id="sr-admin-edit-phone" type="text" value="${escapeHtml(item.reporterPhone ?? "")}" class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm" />
+        </div>
+      </div>
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-gray-700" for="sr-admin-edit-location">위치</label>
+        <input id="sr-admin-edit-location" type="text" value="${escapeHtml(item.location ?? "")}" class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm" />
+      </div>
+      <div class="flex items-center gap-3">
+        <button type="button" id="sr-admin-save-case-btn" class="rounded bg-navy-900 px-4 py-2 text-sm font-semibold text-white hover:bg-navy-800">보고 내용 저장</button>
+        <p id="sr-admin-save-case-status" class="text-xs text-gray-500"></p>
+      </div>
+    </div>`;
+}
+
+function bindAdminCaseEditActions(caseId) {
+  document.getElementById("sr-admin-save-case-btn")?.addEventListener("click", async () => {
+    const title = document.getElementById("sr-admin-edit-title")?.value.trim() ?? "";
+    const content = document.getElementById("sr-admin-edit-content")?.value.trim() ?? "";
+    const reporterName = document.getElementById("sr-admin-edit-reporter")?.value.trim() ?? "";
+    const reporterPhone = document.getElementById("sr-admin-edit-phone")?.value.trim() ?? "";
+    const location = document.getElementById("sr-admin-edit-location")?.value.trim() ?? "";
+    const statusEl = document.getElementById("sr-admin-save-case-status");
+
+    if (!title || !content) {
+      alert("제목과 내용을 입력해 주세요.");
+      return;
+    }
+
+    if (statusEl) {
+      statusEl.textContent = "저장 중...";
+      statusEl.className = "text-xs text-gray-500";
+    }
+
+    try {
+      const result = await srApiFetch(`/api/self-report/cases/${caseId}`, {
+        method: "PATCH",
+        body: { title, content, reporterName, reporterPhone, location },
+      });
+      if (statusEl) {
+        statusEl.textContent = result.message ?? "저장했습니다.";
+        statusEl.className = "text-xs text-green-700";
+      }
+      await loadCases();
+      await openCaseDetail(caseId);
+    } catch (error) {
+      if (statusEl) {
+        statusEl.textContent = error.message ?? "저장에 실패했습니다.";
+        statusEl.className = "text-xs text-red-600";
+      } else {
+        alert(error.message ?? "저장에 실패했습니다.");
+      }
+    }
+  });
+}
+
 function renderAdminAssignHtml(item) {
   const assignedTier1 = item.assigneeStaff?.tier === 1 ? item.assigneeStaff : null;
   if (assignedTier1) {
@@ -707,6 +781,11 @@ function showDashboard() {
     SELF_REPORT_TIER2: "본인에게 배정된 보고를 처리·이첩할 수 있습니다.",
   };
   document.getElementById("sr-role-desc").textContent = desc[session?.role] ?? "";
+  const searchInput = document.getElementById("sr-search");
+  if (searchInput) {
+    searchInput.placeholder =
+      session?.role === "ADMIN" ? "접수번호·제목·신고자 검색" : "접수번호·제목 검색";
+  }
 }
 
 function formatDate(value) {
@@ -1340,7 +1419,7 @@ function renderTier2TransferSmsPreview(force = false) {
     institutionName: item.institution?.name ?? "",
     staffName: recipientName,
     regionalHq: item.regionalHq ?? "",
-    reporterName: item.reporterName ?? "",
+    reporterName: reporterNameForSession(item, getSrSession()),
     email: creds.email,
     authKey: creds.authKey,
     dashboardUrl: getSelfReportDashboardUrl(),
@@ -1610,7 +1689,7 @@ function renderTier2AssignmentSmsPreview(force = false) {
     institutionName: item.institution?.name ?? "",
     staffName: recipientName,
     regionalHq: item.regionalHq ?? "",
-    reporterName: item.reporterName ?? "",
+    reporterName: reporterNameForSession(item, getSrSession()),
     email: creds.email,
     authKey: creds.authKey,
     dashboardUrl: getSelfReportDashboardUrl(),
@@ -2030,6 +2109,10 @@ function isAdminSession() {
   return getSrSession()?.role === "ADMIN";
 }
 
+function reporterNameForSession(item, session) {
+  return session?.role === "ADMIN" ? (item.reporterName ?? "") : "";
+}
+
 function syncCaseSelectAllCheckbox() {
   const selectAll = document.getElementById("sr-select-all-cases");
   if (!selectAll || !isAdminSession()) return;
@@ -2192,7 +2275,7 @@ function renderSmsTemplatePreview(force = false) {
     institutionName: item.institution?.name ?? "",
     staffName: recipientName,
     regionalHq: item.regionalHq ?? "",
-    reporterName: item.reporterName ?? "",
+    reporterName: reporterNameForSession(item, getSrSession()),
     email: creds.email,
     authKey: creds.authKey,
     dashboardUrl: getSelfReportDashboardUrl(),
@@ -2323,16 +2406,14 @@ async function openCaseDetail(caseId) {
   const intakeDisplayHtml = renderIntakeDisplayHtml(item);
 
   document.getElementById("sr-detail-title").textContent = `${item.receiptNumber} · ${item.title}`;
-  const reporterPhoneHtml =
-    session?.role === "ADMIN" && item.reporterPhone
-      ? ` / ${escapeHtml(item.reporterPhone)}`
-      : session?.role === "ADMIN"
-        ? " / -"
-        : "";
+  const reportContentHtml =
+    session?.role === "ADMIN"
+      ? renderAdminCaseContentEditHtml(item)
+      : `<p><strong>위치:</strong> ${escapeHtml(item.location ?? "-")}</p>
+    <div class="rounded border border-gray-200 bg-gray-50 p-3 whitespace-pre-wrap">${escapeHtml(item.content ?? "")}</div>`;
   document.getElementById("sr-detail-body").innerHTML = `
     <p><strong>상태:</strong> ${item.statusLabel ?? STATUS_LABELS[item.status]}</p>
-    <p><strong>신고자:</strong> ${item.reporterName ?? "-"}${reporterPhoneHtml}</p>
-    <p><strong>위치:</strong> ${item.location ?? "-"}</p>
+    ${reportContentHtml}
     <p><strong>배정기관:</strong> ${item.institution?.name ?? "-"}</p>
     <p><strong>담당자 1차:</strong> ${formatAssigneeLabel(item.tier1Assignee)}</p>
     <p><strong>담당자 2차:</strong> ${formatAssigneeLabel(item.tier2Assignee)}</p>
@@ -2341,9 +2422,12 @@ async function openCaseDetail(caseId) {
     ${processingPlanHtml}
     ${processingResultHtml}
     ${priorCompletionHtml}
-    <div class="rounded border border-gray-200 bg-gray-50 p-3 whitespace-pre-wrap">${item.content}</div>
     ${renderAttachmentsHtml(item.attachments, session)}
     ${renderCaseHistoryHtml(item.histories, srState.historyExpanded)}`;
+
+  if (session?.role === "ADMIN") {
+    bindAdminCaseEditActions(caseId);
+  }
 
   bindAttachmentPreview();
   bindAttachmentDeleteHandlers();

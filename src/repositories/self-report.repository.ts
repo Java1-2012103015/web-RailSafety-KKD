@@ -122,6 +122,7 @@ export class SelfReportRepository {
     institutionId?: number;
     assigneeStaffId?: number;
     search?: string;
+    excludeReporterFromSearch?: boolean;
     page: number;
     pageSize: number;
   }) {
@@ -131,12 +132,15 @@ export class SelfReportRepository {
     if (filters.assigneeStaffId) where.assigneeStaffId = filters.assigneeStaffId;
     if (filters.search?.trim()) {
       const q = filters.search.trim();
-      where.OR = [
+      const orConditions: Record<string, unknown>[] = [
         { receiptNumber: { contains: q } },
         { title: { contains: q } },
-        { reporterName: { contains: q } },
         { location: { contains: q } },
       ];
+      if (!filters.excludeReporterFromSearch) {
+        orConditions.push({ reporterName: { contains: q } });
+      }
+      where.OR = orConditions;
     }
 
     return prisma.selfReportCase.findMany({
@@ -165,6 +169,7 @@ export class SelfReportRepository {
     institutionId?: number;
     assigneeStaffId?: number;
     search?: string;
+    excludeReporterFromSearch?: boolean;
   }) {
     const where: Record<string, unknown> = {};
     if (filters.status) where.status = filters.status;
@@ -172,12 +177,15 @@ export class SelfReportRepository {
     if (filters.assigneeStaffId) where.assigneeStaffId = filters.assigneeStaffId;
     if (filters.search?.trim()) {
       const q = filters.search.trim();
-      where.OR = [
+      const orConditions: Record<string, unknown>[] = [
         { receiptNumber: { contains: q } },
         { title: { contains: q } },
-        { reporterName: { contains: q } },
         { location: { contains: q } },
       ];
+      if (!filters.excludeReporterFromSearch) {
+        orConditions.push({ reporterName: { contains: q } });
+      }
+      where.OR = orConditions;
     }
     return prisma.selfReportCase.count({ where });
   }
@@ -258,6 +266,11 @@ export class SelfReportRepository {
   updateCase(
     id: number,
     data: Partial<{
+      title: string;
+      content: string;
+      reporterName: string | null;
+      reporterPhone: string | null;
+      location: string | null;
       status: SelfReportStatus;
       institutionId: number | null;
       assigneeStaffId: number | null;

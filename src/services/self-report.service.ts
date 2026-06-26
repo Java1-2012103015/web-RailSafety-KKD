@@ -132,13 +132,13 @@ export class SelfReportService {
     };
   }
 
-  private sanitizeCaseForActor<T extends { reporterPhone?: string | null }>(
+  private sanitizeCaseForActor<T extends { reporterName?: string | null; reporterPhone?: string | null }>(
     payload: SelfReportActor,
     item: T,
   ): T {
     const actor = this.actorFromPayload(payload);
     if (actor.role === ROLES.ADMIN) return item;
-    return { ...item, reporterPhone: null };
+    return { ...item, reporterName: null, reporterPhone: null };
   }
 
   private formatDateOnly(value: Date | null | undefined): string {
@@ -199,6 +199,7 @@ export class SelfReportService {
     const message = await this.smsTemplateService.render(templateType, {
       ...this.buildSmsVarsFromCase(item, overrides),
       staffName,
+      reporterName: "",
       dashboardUrl,
     });
     const sent = await this.smsNotificationService.sendSms(normalizedPhone, message);
@@ -404,9 +405,11 @@ export class SelfReportService {
 
     if (actor.role === ROLES.SELF_REPORT_TIER1) {
       filters.institutionId = actor.institutionId;
+      filters.excludeReporterFromSearch = true;
     } else if (actor.role === ROLES.SELF_REPORT_TIER2) {
       filters.institutionId = actor.institutionId;
       filters.assigneeStaffId = actor.staffId;
+      filters.excludeReporterFromSearch = true;
     }
 
     const [items, total] = await Promise.all([
@@ -929,6 +932,50 @@ export class SelfReportService {
     }
 
     return this.createCaseRecord(payload, input);
+  }
+
+  async updateCaseContentByAdmin(
+    payload: SelfReportActor,
+    caseId: number,
+    input: {
+      title: string;
+      content: string;
+      reporterName?: string;
+      reporterPhone?: string;
+      location?: string;
+    },
+  ) {
+    if (payload.role !== ROLES.ADMIN) {
+      throw new HttpError(403, "관리자만 보고 내용을 수정할 수 있습니다.");
+    }
+
+    const item = await this.selfReportRepository.findCaseById(caseId);
+    if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
+
+    const title = input.title.trim();
+    const content = input.content.trim();
+    if (!title || !content) {
+      throw new HttpError(400, "제목과 내용은 필수입니다.");
+    }
+
+    await this.selfReportRepository.updateCase(caseId, {
+      title,
+      content,
+      reporterName: input.reporterName?.trim() || null,
+      reporterPhone: input.reporterPhone?.trim() || null,
+      location: input.location?.trim() || null,
+    });
+
+    const actor = this.actorFromPayload(payload);
+    await this.selfReportRepository.createHistory({
+      caseId,
+      action: "보고 내용 수정",
+      note: "관리자가 보고 제목·내용을 수정했습니다.",
+      actorName: actor.userName ?? "관리자",
+      actorRole: ROLES.ADMIN,
+    });
+
+    return this.getCase(payload, caseId);
   }
 
   getCasesSampleCsv() {
@@ -1853,7 +1900,7 @@ export class SelfReportService {
         institutionName: institution?.name ?? "",
         staffName: input.recipientName?.trim() ?? "",
         regionalHq: item.regionalHq ?? "",
-        reporterName: item.reporterName ?? "",
+        reporterName: actor.role === ROLES.ADMIN ? (item.reporterName ?? "") : "",
         email: input.email?.trim() || assigneeStaff?.email || "",
         authKey: input.authKey?.trim() || "",
         dashboardUrl,

@@ -117,6 +117,32 @@ export class SelfReportController {
     }
   };
 
+  updateCase = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { title, content, reporterName, reporterPhone, location } = req.body as {
+        title?: string;
+        content?: string;
+        reporterName?: string;
+        reporterPhone?: string;
+        location?: string;
+      };
+      const result = await selfReportService.updateCaseContentByAdmin(
+        getSelfReportActor(req),
+        Number(req.params.id),
+        {
+          title: title ?? "",
+          content: content ?? "",
+          reporterName,
+          reporterPhone,
+          location,
+        },
+      );
+      res.status(200).json({ data: result, message: "보고 내용을 수정했습니다." });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   getCasesSampleCsv = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const data = selfReportService.getCasesSampleCsv();
