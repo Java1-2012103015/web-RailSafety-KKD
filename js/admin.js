@@ -505,6 +505,24 @@ let usersList = [];
 let selfReportInstitutionsList = [];
 const SELF_REPORT_ROLE_NAMES = ["SELF_REPORT_TIER1", "SELF_REPORT_TIER2"];
 
+function renderUserRoleSelect() {
+  const roleSelect = document.getElementById("field-user-role");
+  if (!roleSelect) return;
+  const current = roleSelect.value;
+  roleSelect.innerHTML = rolesList
+    .map((r) => `<option value="${r.id}">${r.name}</option>`)
+    .join("");
+  if (current && rolesList.some((r) => String(r.id) === current)) {
+    roleSelect.value = current;
+  }
+}
+
+async function fetchRolesList() {
+  const rolesRes = await apiFetch("/api/admin/roles", { auth: true });
+  rolesList = rolesRes.data ?? [];
+  renderUserRoleSelect();
+}
+
 function isSelfReportRoleId(roleId) {
   const role = rolesList.find((r) => r.id === Number(roleId));
   return Boolean(role && SELF_REPORT_ROLE_NAMES.includes(role.name));
@@ -558,15 +576,7 @@ async function loadUsersTab() {
   
   try {
     await loadSelfReportInstitutionsForUsers();
-
-    // Load roles list if not already loaded
-    if (rolesList.length === 0) {
-      const rolesRes = await apiFetch("/api/admin/roles", { auth: true });
-      rolesList = rolesRes.data;
-      
-      const roleSelect = document.getElementById("field-user-role");
-      roleSelect.innerHTML = rolesList.map(r => `<option value="${r.id}">${r.name}</option>`).join("");
-    }
+    await fetchRolesList();
 
     const res = await apiFetch("/api/admin/users", { auth: true });
     usersList = res.data;
@@ -657,7 +667,7 @@ function openUserModal(userId = null) {
   status.textContent = "";
   modal.classList.remove("hidden");
 
-  loadSelfReportInstitutionsForUsers().then(() => {
+  Promise.all([loadSelfReportInstitutionsForUsers(), fetchRolesList()]).then(() => {
     if (userId) {
       // Edit Mode
       title.textContent = "회원 정보 수정";
@@ -1138,6 +1148,7 @@ async function loadRolesTab() {
   try {
     const res = await apiFetch("/api/admin/roles", { auth: true });
     rolesList = res.data;
+    renderUserRoleSelect();
     const usersRes = await apiFetch("/api/admin/users", { auth: true });
     usersList = usersRes.data;
     try {
@@ -3801,10 +3812,7 @@ async function loadRegistrationsTab() {
   tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">신청 목록을 불러오는 중...</td></tr>`;
 
   try {
-    if (rolesList.length === 0) {
-      const rolesRes = await apiFetch("/api/admin/roles", { auth: true });
-      rolesList = rolesRes.data ?? [];
-    }
+    await fetchRolesList();
 
     const assignableRoles = rolesList.filter((role) => role.name !== "ADMIN");
     const roleOptions = assignableRoles
