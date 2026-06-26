@@ -1,14 +1,15 @@
 import path from "path";
-import { MAX_SELF_REPORT_SERIAL_DIGITS } from "./self-report-case-csv";
+import { MAX_SELF_REPORT_SERIAL_DIGITS, SELF_REPORT_SERIAL_PATTERN } from "./self-report-case-csv";
 
-const SERIAL_KEY_PATTERN = `\\d{1,${MAX_SELF_REPORT_SERIAL_DIGITS}}`;
+const SERIAL_KEY_PATTERN = SELF_REPORT_SERIAL_PATTERN;
 
-/** 접수번호 SR-YYYYMMDD-0003 → 일련번호(접미 숫자) */
+/** 접수번호 또는 SR-YYYYMMDD-일련번호에서 일련번호(등록번호) 추출 */
 export function extractSelfReportSerialKey(receiptNumber: string): string {
   const trimmed = receiptNumber.trim();
-  const segments = trimmed.split("-");
-  const last = segments[segments.length - 1] ?? "";
-  return /^\d+$/.test(last) ? last : trimmed;
+  if (/^SR-\d{8}-/i.test(trimmed)) {
+    return trimmed.slice(trimmed.lastIndexOf("-") + 1);
+  }
+  return trimmed;
 }
 
 export type ParsedBulkAttachmentName = {
@@ -18,7 +19,7 @@ export type ParsedBulkAttachmentName = {
   extension: string;
 };
 
-/** 파일명 0003_01.jpg 또는 SR-20260624-0003_02.png 파싱 */
+/** 파일명 20260528A106_01.jpg 또는 SR-20260624-0003_02.png 파싱 */
 export function parseBulkAttachmentFileName(fileName: string): ParsedBulkAttachmentName | null {
   const base = path.basename(fileName);
   const extension = path.extname(base);
@@ -33,7 +34,7 @@ export function parseBulkAttachmentFileName(fileName: string): ParsedBulkAttachm
     };
   }
 
-  const shortMatch = stem.match(new RegExp(`^(${SERIAL_KEY_PATTERN})_(\\d{2})$`));
+  const shortMatch = stem.match(new RegExp(`^(${SERIAL_KEY_PATTERN})_(\\d{2})$`, "i"));
   if (shortMatch) {
     return {
       serialKey: shortMatch[1],
@@ -56,7 +57,7 @@ export function buildSelfReportAttachmentFileName(
 }
 
 export function maxAttachmentIndexForSerial(existingFileNames: string[], serialKey: string): number {
-  const pattern = new RegExp(`^${serialKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}_(\\d{2})`);
+  const pattern = new RegExp(`^${serialKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}_(\\d{2})`, "i");
   let max = 0;
   for (const name of existingFileNames) {
     const base = path.basename(name);
@@ -108,7 +109,9 @@ function receiptNumberMatchesParsed(receiptNumber: string, parsed: ParsedBulkAtt
     return receiptNumber.toUpperCase() === parsed.receiptNumber.toUpperCase();
   }
   if (parsed.serialKey) {
-    return extractSelfReportSerialKey(receiptNumber) === parsed.serialKey;
+    return (
+      extractSelfReportSerialKey(receiptNumber).toLowerCase() === parsed.serialKey.toLowerCase()
+    );
   }
   return false;
 }

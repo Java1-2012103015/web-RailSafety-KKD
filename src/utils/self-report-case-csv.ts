@@ -16,27 +16,31 @@ export const SELF_REPORT_CASE_CSV_HEADER = "일련번호,제목,내용,신고자
 
 export const SELF_REPORT_CASE_SAMPLE_CSV = [
   SELF_REPORT_CASE_CSV_HEADER,
-  "0001,선로 주변 낙석 위험 신고,선로 인근 암반에서 낙석 흔적이 확인되어 신고합니다.,홍길동,010-1234-5678,경북 영주시",
+  "20260528A106,선로 주변 낙석 위험 신고,선로 인근 암반에서 낙석 흔적이 확인되어 신고합니다.,홍길동,010-1234-5678,경북 영주시",
   "0002,건널목 신호등 고장,건널목 신호등이 점멸하지 않습니다.,김철수,010-9876-5432,전북 익산시",
 ].join("\n");
 
 export const MAX_SELF_REPORT_CASE_CSV_ROWS = 200;
 export const MAX_SELF_REPORT_SERIAL_DIGITS = 20;
+export const SELF_REPORT_SERIAL_PATTERN = `[A-Za-z0-9]{1,${MAX_SELF_REPORT_SERIAL_DIGITS}}`;
 
 const FULL_RECEIPT_NUMBER_PATTERN = new RegExp(
-  `^SR-\\d{8}-\\d{1,${MAX_SELF_REPORT_SERIAL_DIGITS}}$`,
+  `^SR-\\d{8}-${SELF_REPORT_SERIAL_PATTERN}$`,
   "i",
 );
 
 export function normalizeSelfReportSerialNo(value: string): string {
-  const digits = value.trim().replace(/\D/g, "");
-  if (!digits) {
-    throw new HttpError(400, "일련번호는 숫자여야 합니다.");
+  const normalized = value.trim().replace(/\s+/g, "");
+  if (!normalized) {
+    throw new HttpError(400, "일련번호를 입력해 주세요.");
   }
-  if (digits.length > MAX_SELF_REPORT_SERIAL_DIGITS) {
-    throw new HttpError(400, `일련번호는 ${MAX_SELF_REPORT_SERIAL_DIGITS}자리 이하여야 합니다.`);
+  if (!/^[A-Za-z0-9]+$/.test(normalized)) {
+    throw new HttpError(400, "일련번호는 영문·숫자만 사용할 수 있습니다.");
   }
-  return digits;
+  if (normalized.length > MAX_SELF_REPORT_SERIAL_DIGITS) {
+    throw new HttpError(400, `일련번호는 ${MAX_SELF_REPORT_SERIAL_DIGITS}자 이하여야 합니다.`);
+  }
+  return normalized;
 }
 
 export function normalizeSelfReportReceiptNumber(value: string): string {
@@ -44,13 +48,13 @@ export function normalizeSelfReportReceiptNumber(value: string): string {
   if (!FULL_RECEIPT_NUMBER_PATTERN.test(normalized)) {
     throw new HttpError(
       400,
-      `접수번호는 SR-YYYYMMDD-일련번호 형식이어야 합니다. (일련번호 최대 ${MAX_SELF_REPORT_SERIAL_DIGITS}자리)`,
+      `접수번호는 SR-YYYYMMDD-일련번호 형식이어야 합니다. (일련번호 영문·숫자, 최대 ${MAX_SELF_REPORT_SERIAL_DIGITS}자)`,
     );
   }
   return normalized;
 }
 
-/** SR-YYYYMMDD-일련번호 또는 일련번호(숫자)만 입력된 경우 등록번호로 정규화 */
+/** SR-YYYYMMDD-일련번호 또는 일련번호(영문·숫자)만 입력된 경우 등록번호로 정규화 */
 export function normalizeSelfReportReceiptNumberInput(value: string): string {
   const trimmed = value.trim();
   if (FULL_RECEIPT_NUMBER_PATTERN.test(trimmed)) {

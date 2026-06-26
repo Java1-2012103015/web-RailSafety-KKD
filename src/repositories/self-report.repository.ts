@@ -6,7 +6,8 @@ import type {
   SelfReportStatus,
 } from "@prisma/client";
 import { prisma } from "../config/prisma";
-import { MAX_SELF_REPORT_SERIAL_DIGITS } from "../utils/self-report-case-csv";
+import { normalizeSelfReportSerialNo } from "../utils/self-report-case-csv";
+import { extractSelfReportSerialKey } from "../utils/self-report-attachment-naming";
 
 export class SelfReportRepository {
   findInstitutionByCode(code: string) {
@@ -189,13 +190,21 @@ export class SelfReportRepository {
   }
 
   findCasesByReceiptSerialKey(serialKey: string) {
-    const normalized = serialKey.trim().replace(/\D/g, "");
-    if (!normalized || normalized.length > MAX_SELF_REPORT_SERIAL_DIGITS) return Promise.resolve([]);
+    let normalized: string;
+    try {
+      normalized = normalizeSelfReportSerialNo(serialKey);
+    } catch {
+      return Promise.resolve([]);
+    }
 
     return prisma.selfReportCase
       .findMany({
         where: {
-          OR: [{ receiptNumber: normalized }, { receiptNumber: { endsWith: `-${normalized}` } }],
+          OR: [
+            { receiptNumber: normalized },
+            { receiptNumber: { endsWith: `-${normalized}` } },
+            { receiptNumber: { contains: normalized } },
+          ],
         },
         select: { id: true, receiptNumber: true },
         orderBy: { createdAt: "desc" },
@@ -203,8 +212,7 @@ export class SelfReportRepository {
       .then((cases) =>
         cases.filter((item) => {
           if (item.receiptNumber === normalized) return true;
-          const suffix = item.receiptNumber.split("-").pop() ?? "";
-          return suffix === normalized;
+          return extractSelfReportSerialKey(item.receiptNumber).toLowerCase() === normalized.toLowerCase();
         }),
       );
   }

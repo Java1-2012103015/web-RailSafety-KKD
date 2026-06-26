@@ -988,7 +988,7 @@ export class SelfReportService {
       if (!parsed) {
         errors.push({
           fileName: originalName,
-          reason: "파일명은 일련번호_01 형식이어야 합니다. (예: 0003_01.jpg)",
+          reason: "파일명은 일련번호_01 형식이어야 합니다. (예: 20260528A106_01.jpg)",
         });
         continue;
       }

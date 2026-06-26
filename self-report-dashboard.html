@@ -182,7 +182,7 @@
         <h3 class="text-lg font-bold text-gray-900">보고 CSV 일괄등록</h3>
         <p class="mt-2 text-xs text-gray-600">
           CSV 칼럼: 일련번호(선택), 제목, 내용(필수), 신고자명, 연락처, 위치 · 최대 200건<br />
-          일련번호(예: 0001)를 입력하면 목록 <strong>등록번호</strong>에 그대로 표시됩니다. (쉼표·세미콜론 CSV 모두 지원) 접수번호 칼럼으로 SR-YYYYMMDD-0001 형식 전체를 지정할 수도 있습니다.
+          일련번호(예: 20260528A106)를 입력하면 목록 <strong>등록번호</strong>에 그대로 표시됩니다. (영문·숫자, 최대 20자 · 쉼표·세미콜론 CSV 지원)
         </p>
         <div class="mt-4 space-y-3">
           <input id="sr-bulk-csv-file" type="file" accept=".csv,text/csv" class="block w-full text-sm text-gray-700 file:mr-3 file:rounded file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-navy-800" />
@@ -199,9 +199,8 @@
       <div class="w-full max-w-lg rounded-sm border border-gray-300 bg-white p-6 shadow-lg">
         <h3 class="text-lg font-bold text-gray-900">첨부파일 일괄등록</h3>
         <p class="mt-2 text-xs text-gray-600">
-          파일명은 <strong>일련번호_순번</strong> 형식이어야 합니다. (예: <code class="text-xs">0003_01.jpg</code>, <code class="text-xs">1234567890_02.png</code>)
-          접수번호 접미 일련번호(최대 20자리)와 앞자리가 같으면 해당 보고에 연결됩니다.
-          동일 일련번호 보고가 여러 건이면 <code class="text-xs">SR-20260624-0003_01.jpg</code>처럼 접수번호 전체를 사용하세요.
+          파일명은 <strong>일련번호_순번</strong> 형식이어야 합니다. (예: <code class="text-xs">20260528A106_01.jpg</code>)
+          등록번호(일련번호)와 앞부분이 같으면 해당 보고에 연결됩니다.
         </p>
         <div class="mt-4 space-y-3">
           <input id="sr-bulk-attachments-file" type="file" multiple class="block w-full text-sm text-gray-700 file:mr-3 file:rounded file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-navy-800" />
