@@ -71,6 +71,10 @@ const srState = {
   adminTier1EmailCheck: null,
   pendingTier1Staff: null,
   selectedCaseIds: new Set(),
+  listPage: 1,
+  listPageSize: 15,
+  listTotal: 0,
+  listTotalPages: 1,
 };
 
 const SR_SMS_TEMPLATE_DEFAULTS = {
@@ -1898,19 +1902,85 @@ function bindAttachmentDeleteHandlers() {
   });
 }
 
-async function loadCases() {
+async function loadCases(requestedPage) {
+  if (requestedPage !== undefined) {
+    srState.listPage = Math.max(1, Number(requestedPage) || 1);
+  }
+
   const status = document.getElementById("sr-status-filter").value;
   const search = document.getElementById("sr-search").value.trim();
   const params = new URLSearchParams();
   if (status) params.set("status", status);
   if (search) params.set("search", search);
+  params.set("page", String(srState.listPage));
+  params.set("pageSize", String(srState.listPageSize));
 
   const result = await srApiFetch(`/api/self-report/cases?${params.toString()}`);
-  srState.cases = result.data.items ?? [];
+  const data = result.data ?? {};
+  srState.cases = data.items ?? [];
+  srState.listTotal = data.total ?? srState.cases.length;
+  srState.listPage = data.page ?? srState.listPage;
+  srState.listTotalPages = Math.max(1, data.totalPages ?? 1);
+  srState.listPageSize = data.pageSize ?? srState.listPageSize;
+
+  if (srState.listPage > srState.listTotalPages && srState.listTotal > 0) {
+    return loadCases(srState.listTotalPages);
+  }
+
   const visibleIds = new Set(srState.cases.map((item) => item.id));
   srState.selectedCaseIds = new Set([...srState.selectedCaseIds].filter((id) => visibleIds.has(id)));
   renderCaseTable();
-  syncCaseSelectAllCheckbox();
+  updateSrPaginationUI();
+}
+
+function updateSrPaginationUI() {
+  const totalEl = document.getElementById("sr-total-count");
+  const currentEl = document.getElementById("sr-current-page");
+  const totalPagesEl = document.getElementById("sr-total-pages");
+  const pageSizeEl = document.getElementById("sr-page-size");
+  const numbers = document.getElementById("sr-page-numbers");
+  const pagination = document.getElementById("sr-pagination");
+
+  if (totalEl) totalEl.textContent = String(srState.listTotal);
+  if (currentEl) currentEl.textContent = String(srState.listPage);
+  if (totalPagesEl) totalPagesEl.textContent = String(srState.listTotalPages);
+  if (pageSizeEl) pageSizeEl.value = String(srState.listPageSize);
+  if (pagination) {
+    pagination.classList.toggle("hidden", srState.listTotal === 0);
+  }
+
+  const firstBtn = document.getElementById("sr-page-first");
+  const prevBtn = document.getElementById("sr-page-prev");
+  const nextBtn = document.getElementById("sr-page-next");
+  const lastBtn = document.getElementById("sr-page-last");
+  const onFirstPage = srState.listPage <= 1;
+  const onLastPage = srState.listPage >= srState.listTotalPages;
+  if (firstBtn) firstBtn.disabled = onFirstPage;
+  if (prevBtn) prevBtn.disabled = onFirstPage;
+  if (nextBtn) nextBtn.disabled = onLastPage;
+  if (lastBtn) lastBtn.disabled = onLastPage;
+
+  if (!numbers) return;
+  numbers.innerHTML = "";
+
+  const maxButtons = 5;
+  let start = Math.max(1, srState.listPage - Math.floor(maxButtons / 2));
+  let end = Math.min(srState.listTotalPages, start + maxButtons - 1);
+  start = Math.max(1, end - maxButtons + 1);
+
+  for (let page = start; page <= end; page += 1) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = String(page);
+    btn.className =
+      page === srState.listPage
+        ? "min-w-[28px] rounded border border-navy-800 bg-navy-800 px-2 py-1 text-xs text-white"
+        : "min-w-[28px] rounded border border-gray-300 px-2 py-1 text-xs hover:bg-white";
+    btn.addEventListener("click", () => {
+      loadCases(page).catch((error) => alert(error.message ?? "목록을 불러오지 못했습니다."));
+    });
+    numbers.appendChild(btn);
+  }
 }
 
 function isAdminSession() {
@@ -3028,7 +3098,40 @@ function bindEvents() {
     }
     showLogin();
   });
-  document.getElementById("sr-search-btn").addEventListener("click", () => loadCases().catch((e) => alert(e.message)));
+  document.getElementById("sr-search-btn").addEventListener("click", () => {
+    srState.listPage = 1;
+    loadCases().catch((e) => alert(e.message));
+  });
+  document.getElementById("sr-search")?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      srState.listPage = 1;
+      loadCases().catch((e) => alert(e.message));
+    }
+  });
+  document.getElementById("sr-status-filter")?.addEventListener("change", () => {
+    srState.listPage = 1;
+    loadCases().catch((e) => alert(e.message));
+  });
+  document.getElementById("sr-page-size")?.addEventListener("change", (event) => {
+    srState.listPageSize = Number(event.target.value) || 15;
+    srState.listPage = 1;
+    loadCases().catch((e) => alert(e.message));
+  });
+  document.getElementById("sr-page-first")?.addEventListener("click", () => {
+    loadCases(1).catch((e) => alert(e.message));
+  });
+  document.getElementById("sr-page-prev")?.addEventListener("click", () => {
+    if (srState.listPage > 1) loadCases(srState.listPage - 1).catch((e) => alert(e.message));
+  });
+  document.getElementById("sr-page-next")?.addEventListener("click", () => {
+    if (srState.listPage < srState.listTotalPages) {
+      loadCases(srState.listPage + 1).catch((e) => alert(e.message));
+    }
+  });
+  document.getElementById("sr-page-last")?.addEventListener("click", () => {
+    loadCases(srState.listTotalPages).catch((e) => alert(e.message));
+  });
   document.getElementById("sr-bulk-delete-btn")?.addEventListener("click", () => {
     deleteSelectedCases().catch((error) => alert(error.message ?? "삭제에 실패했습니다."));
   });
