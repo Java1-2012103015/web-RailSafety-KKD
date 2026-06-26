@@ -8,8 +8,30 @@ import {
 } from "../services/self-report-user-sync.service";
 import { HttpError } from "../utils/http-error";
 import { hashPassword } from "../utils/password";
-import { encryptSelfReportAuthKey } from "../utils/self-report-auth-key";
+import { decryptSelfReportAuthKey, encryptSelfReportAuthKey } from "../utils/self-report-auth-key";
 import { parseIpRestrictionInput } from "../utils/client-ip";
+
+function resolvePasskeyForAdmin(user: {
+  passkeyEnc?: string | null;
+  selfReportAuthKeyEnc?: string | null;
+}): string | null {
+  return decryptSelfReportAuthKey(user.passkeyEnc ?? user.selfReportAuthKeyEnc);
+}
+
+function sanitizeUserForAdmin<
+  T extends {
+    password: string;
+    selfReportAuthKeyHash?: string | null;
+    selfReportAuthKeyEnc?: string | null;
+    passkeyEnc?: string | null;
+  },
+>(user: T) {
+  const { password, selfReportAuthKeyHash, selfReportAuthKeyEnc, passkeyEnc, ...rest } = user;
+  return {
+    ...rest,
+    passkey: resolvePasskeyForAdmin({ passkeyEnc, selfReportAuthKeyEnc }),
+  };
+}
 
 export class UserController {
   constructor(
@@ -49,7 +71,7 @@ export class UserController {
   listUsers = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const users = await this.userRepository.findAll();
-      const sanitizedUsers = users.map(({ password, selfReportAuthKeyHash, selfReportAuthKeyEnc, ...user }) => user);
+      const sanitizedUsers = users.map((user) => sanitizeUserForAdmin(user));
 
       res.status(200).json({
         message: "Users retrieved successfully.",
@@ -90,6 +112,8 @@ export class UserController {
       const ipSettings = parseIpRestrictionInput({ ipRestrictionEnabled, allowedIp });
       const hashedPassword = await hashPassword(password);
 
+      const passkeyEnc = encryptSelfReportAuthKey(password);
+
       const user = await this.userRepository.create({
         email: email.trim(),
         password: hashedPassword,
@@ -97,7 +121,8 @@ export class UserController {
         roleId: roleId as number,
         selfReportInstitutionId: institutionId,
         selfReportAuthKeyHash: isSelfReportRole(roleName) ? hashedPassword : null,
-        selfReportAuthKeyEnc: isSelfReportRole(roleName) ? encryptSelfReportAuthKey(password) : null,
+        selfReportAuthKeyEnc: isSelfReportRole(roleName) ? passkeyEnc : null,
+        passkeyEnc,
         ...ipSettings,
       });
 
@@ -106,11 +131,9 @@ export class UserController {
         await this.selfReportUserSyncService.syncStaffFromUser(userWithRole);
       }
 
-      const { password: _, selfReportAuthKeyHash: __, selfReportAuthKeyEnc: ___, ...result } = user;
-
       res.status(201).json({
         message: "User created successfully.",
-        data: result,
+        data: sanitizeUserForAdmin(user),
       });
     } catch (error) {
       next(error);
@@ -148,6 +171,7 @@ export class UserController {
         selfReportInstitutionId?: number | null;
         selfReportAuthKeyHash?: string | null;
         selfReportAuthKeyEnc?: string | null;
+        passkeyEnc?: string | null;
         ipRestrictionEnabled?: boolean;
         allowedIp?: string | null;
       } = {};
@@ -184,7 +208,9 @@ export class UserController {
 
       if (password !== undefined && password.trim() !== "") {
         const hashedPassword = await hashPassword(password);
+        const passkeyEnc = encryptSelfReportAuthKey(password.trim());
         updateData.password = hashedPassword;
+        updateData.passkeyEnc = passkeyEnc;
       }
 
       const finalRole =
@@ -194,8 +220,8 @@ export class UserController {
       if (finalRole && isSelfReportRole(finalRole.name)) {
         if (updateData.password) {
           updateData.selfReportAuthKeyHash = updateData.password;
-          if (password?.trim()) {
-            updateData.selfReportAuthKeyEnc = encryptSelfReportAuthKey(password.trim());
+          if (updateData.passkeyEnc) {
+            updateData.selfReportAuthKeyEnc = updateData.passkeyEnc;
           }
         }
       } else if (institutionProvided || roleId !== undefined) {
@@ -223,11 +249,9 @@ export class UserController {
         }
       }
 
-      const { password: _, selfReportAuthKeyHash: __, selfReportAuthKeyEnc: ___, ...result } = updatedUser;
-
       res.status(200).json({
         message: "User updated successfully.",
-        data: result,
+        data: sanitizeUserForAdmin(updatedUser),
       });
     } catch (error) {
       next(error);

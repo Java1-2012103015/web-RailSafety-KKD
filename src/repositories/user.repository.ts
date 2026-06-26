@@ -28,6 +28,7 @@ export class UserRepository {
     selfReportInstitutionId?: number | null;
     selfReportAuthKeyHash?: string | null;
     selfReportAuthKeyEnc?: string | null;
+    passkeyEnc?: string | null;
     ipRestrictionEnabled?: boolean;
     allowedIp?: string | null;
   }): Promise<User> {
@@ -66,6 +67,8 @@ export class UserRepository {
       password?: string;
       selfReportInstitutionId?: number | null;
       selfReportAuthKeyHash?: string | null;
+      selfReportAuthKeyEnc?: string | null;
+      passkeyEnc?: string | null;
       ipRestrictionEnabled?: boolean;
       allowedIp?: string | null;
     },

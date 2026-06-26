@@ -1307,7 +1307,7 @@ export class SelfReportService {
     if (!email?.trim()) return null;
     const user = await this.userRepository.findByEmail(email.trim());
     if (!user) return null;
-    return decryptSelfReportAuthKey(user.selfReportAuthKeyEnc);
+    return decryptSelfReportAuthKey(user.passkeyEnc ?? user.selfReportAuthKeyEnc);
   }
 
   async checkStaffEmail(
@@ -1413,6 +1413,7 @@ export class SelfReportService {
         throw new HttpError(400, "인증키는 4자 이상이어야 합니다.");
       }
       const hashed = await hashPassword(authKey);
+      const passkeyEnc = encryptSelfReportAuthKey(authKey);
       await this.userRepository.create({
         email,
         password: hashed,
@@ -1420,7 +1421,8 @@ export class SelfReportService {
         roleId: role.id,
         selfReportInstitutionId: institutionId,
         selfReportAuthKeyHash: hashed,
-        selfReportAuthKeyEnc: encryptSelfReportAuthKey(authKey),
+        selfReportAuthKeyEnc: passkeyEnc,
+        passkeyEnc,
       });
     }
 

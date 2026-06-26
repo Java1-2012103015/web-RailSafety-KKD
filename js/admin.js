@@ -502,6 +502,7 @@ async function loadBrandingTab() {
 // TAB 2: USER MANAGEMENT
 // ==========================================
 let usersList = [];
+let editingUserPasskey = "";
 let selfReportInstitutionsList = [];
 const SELF_REPORT_ROLE_NAMES = ["SELF_REPORT_TIER1", "SELF_REPORT_TIER2"];
 
@@ -550,8 +551,8 @@ function syncUserInstitutionField() {
   }
   if (pwdHint) {
     pwdHint.textContent = show
-      ? "※ 자율보고 로그인 화면의 패스키와 동일합니다. 비워두면 기존 패스키가 유지됩니다."
-      : "※ 비워두면 기존 패스키가 유지됩니다.";
+      ? "※ 자율보고 로그인 화면의 패스키와 동일합니다. 수정하지 않으면 기존 패스키가 유지됩니다."
+      : "※ 수정하지 않으면 기존 패스키가 유지됩니다.";
   }
 }
 
@@ -667,6 +668,7 @@ function openUserModal(userId = null) {
 
   form.reset();
   status.textContent = "";
+  editingUserPasskey = "";
   modal.classList.remove("hidden");
 
   Promise.all([loadSelfReportInstitutionsForUsers(), fetchRolesList()]).then(() => {
@@ -675,7 +677,7 @@ function openUserModal(userId = null) {
       title.textContent = "회원 정보 수정";
       emailInput.disabled = true;
       pwdHint.classList.remove("hidden");
-      pwdInput.placeholder = "변경할 경우에만 새 패스키 입력";
+      pwdInput.placeholder = "패스키 (변경 시에만 수정)";
       
       const user = usersList.find(u => u.id === userId);
       if (user) {
@@ -686,6 +688,8 @@ function openUserModal(userId = null) {
         document.getElementById("field-user-institution").value = user.selfReportInstitutionId ?? "";
         document.getElementById("field-user-ip-restriction").checked = Boolean(user.ipRestrictionEnabled);
         document.getElementById("field-user-allowed-ip").value = user.allowedIp ?? "";
+        editingUserPasskey = user.passkey ?? "";
+        pwdInput.value = editingUserPasskey;
       }
     } else {
       // Create Mode
@@ -745,10 +749,11 @@ async function saveUserSubmit() {
     if (idVal) {
       // Update
       const id = Number(idVal);
+      const passwordPayload = password && password !== editingUserPasskey ? password : undefined;
       await apiFetch(`/api/admin/users/${id}`, {
         auth: true,
         method: "PUT",
-        body: { name, roleId, password: password || undefined, ipRestrictionEnabled, allowedIp, ...institutionPayload }
+        body: { name, roleId, password: passwordPayload, ipRestrictionEnabled, allowedIp, ...institutionPayload }
       });
     } else {
       // Create / Sign up
