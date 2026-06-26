@@ -543,13 +543,15 @@ function syncUserInstitutionField() {
     select.value = "";
   }
   if (pwdLabel) {
-    pwdLabel.textContent = show ? "인증키 (자율보고 로그인)" : "비밀번호 (Password)";
+    pwdLabel.textContent = show ? "패스키 (자율보고 로그인)" : "패스키 (Passkey)";
   }
   if (pwdInput) {
-    pwdInput.placeholder = show ? "자율보고 로그인용 인증키" : "변경 시에만 입력";
+    pwdInput.placeholder = show ? "자율보고 로그인용 패스키" : "변경 시에만 입력";
   }
-  if (pwdHint && show) {
-    pwdHint.textContent = "※ 자율보고 로그인 화면의 인증키와 동일합니다. 비워두면 기존 인증키가 유지됩니다.";
+  if (pwdHint) {
+    pwdHint.textContent = show
+      ? "※ 자율보고 로그인 화면의 패스키와 동일합니다. 비워두면 기존 패스키가 유지됩니다."
+      : "※ 비워두면 기존 패스키가 유지됩니다.";
   }
 }
 
@@ -673,7 +675,7 @@ function openUserModal(userId = null) {
       title.textContent = "회원 정보 수정";
       emailInput.disabled = true;
       pwdHint.classList.remove("hidden");
-      pwdInput.placeholder = "변경할 경우에만 새 비밀번호 입력";
+      pwdInput.placeholder = "변경할 경우에만 새 패스키 입력";
       
       const user = usersList.find(u => u.id === userId);
       if (user) {
@@ -690,7 +692,7 @@ function openUserModal(userId = null) {
       title.textContent = "신규 회원 등록";
       emailInput.disabled = false;
       pwdHint.classList.add("hidden");
-      pwdInput.placeholder = "비밀번호 입력";
+      pwdInput.placeholder = "패스키 입력";
       document.getElementById("field-user-id").value = "";
     }
 
@@ -751,7 +753,7 @@ async function saveUserSubmit() {
     } else {
       // Create / Sign up
       if (!password) {
-        status.textContent = "신규 회원은 비밀번호가 필수입니다.";
+        status.textContent = "신규 회원은 패스키가 필수입니다.";
         status.className = "text-xs text-red-600 font-semibold";
         return;
       }

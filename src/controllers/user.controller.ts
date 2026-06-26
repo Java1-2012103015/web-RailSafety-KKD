@@ -8,6 +8,7 @@ import {
 } from "../services/self-report-user-sync.service";
 import { HttpError } from "../utils/http-error";
 import { hashPassword } from "../utils/password";
+import { encryptSelfReportAuthKey } from "../utils/self-report-auth-key";
 import { parseIpRestrictionInput } from "../utils/client-ip";
 
 export class UserController {
@@ -48,7 +49,7 @@ export class UserController {
   listUsers = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const users = await this.userRepository.findAll();
-      const sanitizedUsers = users.map(({ password, selfReportAuthKeyHash, ...user }) => user);
+      const sanitizedUsers = users.map(({ password, selfReportAuthKeyHash, selfReportAuthKeyEnc, ...user }) => user);
 
       res.status(200).json({
         message: "Users retrieved successfully.",
@@ -96,6 +97,7 @@ export class UserController {
         roleId: roleId as number,
         selfReportInstitutionId: institutionId,
         selfReportAuthKeyHash: isSelfReportRole(roleName) ? hashedPassword : null,
+        selfReportAuthKeyEnc: isSelfReportRole(roleName) ? encryptSelfReportAuthKey(password) : null,
         ...ipSettings,
       });
 
@@ -104,7 +106,7 @@ export class UserController {
         await this.selfReportUserSyncService.syncStaffFromUser(userWithRole);
       }
 
-      const { password: _, selfReportAuthKeyHash: __, ...result } = user;
+      const { password: _, selfReportAuthKeyHash: __, selfReportAuthKeyEnc: ___, ...result } = user;
 
       res.status(201).json({
         message: "User created successfully.",
@@ -145,6 +147,7 @@ export class UserController {
         password?: string;
         selfReportInstitutionId?: number | null;
         selfReportAuthKeyHash?: string | null;
+        selfReportAuthKeyEnc?: string | null;
         ipRestrictionEnabled?: boolean;
         allowedIp?: string | null;
       } = {};
@@ -191,9 +194,13 @@ export class UserController {
       if (finalRole && isSelfReportRole(finalRole.name)) {
         if (updateData.password) {
           updateData.selfReportAuthKeyHash = updateData.password;
+          if (password?.trim()) {
+            updateData.selfReportAuthKeyEnc = encryptSelfReportAuthKey(password.trim());
+          }
         }
       } else if (institutionProvided || roleId !== undefined) {
         updateData.selfReportAuthKeyHash = null;
+        updateData.selfReportAuthKeyEnc = null;
       }
 
       if (ipRestrictionEnabled !== undefined || allowedIp !== undefined) {
@@ -216,7 +223,7 @@ export class UserController {
         }
       }
 
-      const { password: _, selfReportAuthKeyHash: __, ...result } = updatedUser;
+      const { password: _, selfReportAuthKeyHash: __, selfReportAuthKeyEnc: ___, ...result } = updatedUser;
 
       res.status(200).json({
         message: "User updated successfully.",

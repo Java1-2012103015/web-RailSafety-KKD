@@ -119,7 +119,27 @@ const SR_TIER2_ACCOUNT_SMS_TEMPLATE =
   "(배정자 ; {assignerName} (배정자 이메일 ; {assignerEmail}))";
 
 const SR_TIER2_AUTH_KEY_STORAGE = "sr_tier2_auth_keys";
+const SR_STAFF_AUTH_KEY_BY_EMAIL = "sr_staff_auth_keys_by_email";
 const SR_PORTAL_BRIDGE_ROLES = ["ADMIN"];
+
+function saveAuthKeyByEmail(email, authKey) {
+  if (!email || !authKey) return;
+  try {
+    const map = JSON.parse(sessionStorage.getItem(SR_STAFF_AUTH_KEY_BY_EMAIL) || "{}");
+    map[email.trim().toLowerCase()] = authKey;
+    sessionStorage.setItem(SR_STAFF_AUTH_KEY_BY_EMAIL, JSON.stringify(map));
+  } catch (_) {}
+}
+
+function loadAuthKeyByEmail(email) {
+  if (!email) return null;
+  try {
+    const map = JSON.parse(sessionStorage.getItem(SR_STAFF_AUTH_KEY_BY_EMAIL) || "{}");
+    return map[email.trim().toLowerCase()] ?? null;
+  } catch {
+    return null;
+  }
+}
 
 function getPortalBridgeSession() {
   const token = typeof getToken === "function" ? getToken() : null;
@@ -180,6 +200,7 @@ function resolveAdminTier1Credentials(item) {
   let email = smsEmail || pending?.email || assigned?.email || formEmail || "";
   let authKey = smsAuthKey || pending?.authKey || "";
   if (!authKey && formAuthKey && !authDisabled) authKey = formAuthKey;
+  if (!authKey && email) authKey = loadAuthKeyByEmail(email) ?? "";
 
   if (assigned && item?.id) {
     const stored = loadStoredTier2AuthKey(item.id, assigned.id);
@@ -324,9 +345,9 @@ function applyAdminTier1EmailCheckUI(check) {
     msgEl.className = "text-xs text-green-700";
   } else if (check.status === "existing") {
     authKeyEl.disabled = true;
-    authKeyEl.value = "";
+    authKeyEl.value = check.authKey ?? "";
     authKeyEl.classList.add("bg-gray-100");
-    authKeyEl.placeholder = "기존 계정 — 패스키 변경 불가";
+    authKeyEl.placeholder = check.authKey ? "기존 계정 패스키 (자동 조회)" : "기존 계정 — 저장된 패스키 없음";
     msgEl.textContent = check.message;
     msgEl.className = "text-xs text-amber-700";
   }
@@ -386,8 +407,10 @@ function bindAdminAssignActions() {
         institutionId,
         status: data.status,
         message: data.message ?? result.message,
+        authKey: data.authKey ?? null,
       };
       applyAdminTier1EmailCheckUI(srState.adminTier1EmailCheck);
+      if (data.authKey) saveAuthKeyByEmail(email, data.authKey);
       if (data.status === "existing" && data.name) {
         const nameEl = document.getElementById("sr-admin-tier1-name");
         if (nameEl && !nameEl.value.trim()) nameEl.value = data.name;
@@ -447,19 +470,34 @@ function bindAdminAssignActions() {
       });
       const data = result.data;
       const assigned = data.assignedStaff;
-      const authKey =
-        mode === "new" ? document.getElementById("sr-admin-tier1-auth-key")?.value.trim() ?? "" : "";
+      const staffEmail =
+        mode === "new"
+          ? document.getElementById("sr-admin-tier1-email")?.value.trim() ?? assigned?.email ?? ""
+          : assigned?.email ?? "";
+      const check = srState.adminTier1EmailCheck;
+      let authKey = "";
+      if (mode === "new") {
+        if (check?.status === "existing" && check.email === staffEmail) {
+          authKey =
+            assigned?.authKey ?? check.authKey ?? loadAuthKeyByEmail(staffEmail) ?? "";
+        } else {
+          authKey = document.getElementById("sr-admin-tier1-auth-key")?.value.trim() ?? "";
+        }
+      } else {
+        authKey = assigned?.authKey ?? loadAuthKeyByEmail(staffEmail) ?? "";
+      }
 
       if (assigned?.staffId) {
+        if (authKey && staffEmail) saveAuthKeyByEmail(staffEmail, authKey);
         srState.pendingTier1Staff = {
           caseId: srState.currentCase.id,
           staffId: assigned.staffId,
           name: assigned.name,
           email: assigned.email ?? "",
-          authKey: assigned.isExisting ? null : authKey || null,
+          authKey: authKey || null,
           isExisting: Boolean(assigned.isExisting),
         };
-        if (!assigned.isExisting && authKey) {
+        if (authKey) {
           saveStoredStaffAuthKey(srState.currentCase.id, assigned.staffId, assigned.email, authKey);
         }
       }
@@ -470,7 +508,7 @@ function bindAdminAssignActions() {
           ? document.getElementById("sr-admin-tier1-phone")?.value.trim() ?? assigned?.phone ?? ""
           : assigned?.phone ?? "";
 
-      if (!assigned?.isExisting && authKey && phone) {
+      if (authKey && phone) {
         if (window.confirm("1차 담당자에게 배정했습니다. 접속안내 문자를 발송하시겠습니까?")) {
           try {
             const smsResult = await srApiFetch(
@@ -487,6 +525,11 @@ function bindAdminAssignActions() {
         } else {
           alert(result.message ?? "1차 담당자에게 배정했습니다. 아래 '문자 발송'으로 배정 안내를 보낼 수 있습니다.");
         }
+      } else if (assigned?.isExisting && !authKey) {
+        alert(
+          result.message ??
+            "1차 담당자에게 배정했습니다. 저장된 패스키가 없어 접속안내 문자에 패스키를 넣을 수 없습니다. 비밀번호를 재설정한 뒤 다시 발송해 주세요.",
+        );
       } else {
         alert(result.message ?? "1차 담당자에게 배정했습니다. 아래 '문자 발송'으로 배정 안내를 보낼 수 있습니다.");
       }

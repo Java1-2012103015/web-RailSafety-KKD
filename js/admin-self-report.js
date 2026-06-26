@@ -68,9 +68,9 @@ function applySrAdminStaffEmailCheckUI(check) {
     msgEl.className = "text-xs text-green-700";
   } else if (check.status === "existing") {
     authKeyEl.disabled = true;
-    authKeyEl.value = "";
+    authKeyEl.value = check.authKey ?? "";
     authKeyEl.classList.add("bg-gray-100");
-    authKeyEl.placeholder = "기존 계정 — 패스키 변경 불가";
+    authKeyEl.placeholder = check.authKey ? "기존 계정 패스키 (자동 조회)" : "기존 계정 — 저장된 패스키 없음";
     msgEl.textContent = check.message;
     msgEl.className = "text-xs text-amber-700";
   }
@@ -176,6 +176,7 @@ function bindSelfReportAdminEvents() {
         tier,
         status: data.status,
         message: data.message ?? result.message,
+        authKey: data.authKey ?? null,
       };
       applySrAdminStaffEmailCheckUI(srAdminStaffEmailCheck);
       if (data.status === "existing" && data.name) {
@@ -222,10 +223,20 @@ function bindSelfReportAdminEvents() {
       clearSrAdminStaffEmailCheck();
       await loadSelfReportStaff(srAdminSelectedInstitutionId);
 
-      if (!data.isExisting && authKey && phone) {
+      const resolvedAuthKey =
+        data.isExisting
+          ? data.authKey ?? check.authKey ?? authKey
+          : authKey;
+
+      if (resolvedAuthKey && phone) {
         if (window.confirm("접속안내 문자를 발송하시겠습니까?")) {
           try {
-            const smsResult = await sendSrAdminStaffAccessSms({ phone, email, authKey, tier });
+            const smsResult = await sendSrAdminStaffAccessSms({
+              phone,
+              email,
+              authKey: resolvedAuthKey,
+              tier,
+            });
             alert(smsResult.message ?? "접속안내 문자를 발송했습니다.");
           } catch (smsError) {
             alert(smsError.message ?? "접속안내 문자 발송에 실패했습니다.");
@@ -233,6 +244,11 @@ function bindSelfReportAdminEvents() {
         } else {
           alert(result.message ?? "담당자를 등록했습니다.");
         }
+      } else if (data.isExisting && !resolvedAuthKey) {
+        alert(
+          result.message ??
+            "담당자를 등록했습니다. 저장된 패스키가 없어 접속안내 문자에 패스키를 넣을 수 없습니다.",
+        );
       } else {
         alert(result.message ?? "담당자를 등록했습니다.");
       }

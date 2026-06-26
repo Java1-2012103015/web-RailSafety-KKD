@@ -38,6 +38,7 @@ import {
 } from "../utils/self-report-attachment-naming";
 import { HttpError } from "../utils/http-error";
 import { hashPassword } from "../utils/password";
+import { decryptSelfReportAuthKey, encryptSelfReportAuthKey } from "../utils/self-report-auth-key";
 import type { SelfReportActor } from "../middlewares/self-report-auth.middleware";
 import { isPortalPayload } from "../middlewares/self-report-auth.middleware";
 
@@ -1232,6 +1233,7 @@ export class SelfReportService {
     });
 
     const caseData = await this.getCase(payload, caseId);
+    const authKey = await this.resolveAuthKeyForStaffEmail(tier1Staff.email);
     return {
       ...caseData,
       assignedStaff: {
@@ -1240,6 +1242,7 @@ export class SelfReportService {
         email: tier1Staff.email,
         phone: tier1Staff.phone,
         isExisting: isExistingStaff,
+        authKey,
       },
     };
   }
@@ -1251,6 +1254,13 @@ export class SelfReportService {
 
   private selfReportRoleForTier(tier: 1 | 2): string {
     return tier === 1 ? ROLES.SELF_REPORT_TIER1 : ROLES.SELF_REPORT_TIER2;
+  }
+
+  private async resolveAuthKeyForStaffEmail(email: string | null | undefined): Promise<string | null> {
+    if (!email?.trim()) return null;
+    const user = await this.userRepository.findByEmail(email.trim());
+    if (!user) return null;
+    return decryptSelfReportAuthKey(user.selfReportAuthKeyEnc);
   }
 
   async checkStaffEmail(
@@ -1281,10 +1291,14 @@ export class SelfReportService {
     }
 
     if (existingUser.role.name === roleName && existingUser.selfReportInstitutionId === institutionId) {
+      const authKey = await this.resolveAuthKeyForStaffEmail(email);
       return {
         status: "existing" as const,
-        message: "기존에 송부한 이력이 있는 이메일입니다. 당시 설정된 패스키로 진행됩니다",
+        message: authKey
+          ? "기존에 송부한 이력이 있는 이메일입니다. 저장된 패스키로 진행됩니다."
+          : "기존에 송부한 이력이 있는 이메일입니다. 당시 설정된 패스키로 진행됩니다",
         name: existingUser.name,
+        authKey,
       };
     }
 
@@ -1359,6 +1373,7 @@ export class SelfReportService {
         roleId: role.id,
         selfReportInstitutionId: institutionId,
         selfReportAuthKeyHash: hashed,
+        selfReportAuthKeyEnc: encryptSelfReportAuthKey(authKey),
       });
     }
 
@@ -1371,6 +1386,10 @@ export class SelfReportService {
       await this.selfReportRepository.updateStaff(staff.id, { phone: input.phone.trim() });
     }
 
+    const resolvedAuthKey = isExisting
+      ? await this.resolveAuthKeyForStaffEmail(email)
+      : input.authKey?.trim() || null;
+
     return {
       staffId: staff.id,
       name: staff.name,
@@ -1380,6 +1399,7 @@ export class SelfReportService {
       institutionName: institution.name,
       isExisting,
       tier: input.tier,
+      authKey: resolvedAuthKey,
     };
   }
 
