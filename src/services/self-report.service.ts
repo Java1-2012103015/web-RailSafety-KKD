@@ -432,6 +432,16 @@ export class SelfReportService {
     };
   }
 
+  private async enrichAssigneeStaffForAdmin<T extends { email?: string | null } | null>(
+    payload: SelfReportActor,
+    assigneeStaff: T,
+  ): Promise<(T & { authKey?: string | null }) | null> {
+    if (!assigneeStaff) return assigneeStaff;
+    if (payload.role !== ROLES.ADMIN) return assigneeStaff;
+    const authKey = await this.resolveAuthKeyForStaffEmail(assigneeStaff.email);
+    return { ...assigneeStaff, authKey };
+  }
+
   async getCase(payload: SelfReportActor, caseId: number) {
     const item = await this.selfReportRepository.findCaseById(caseId);
     if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
@@ -445,8 +455,11 @@ export class SelfReportService {
       }
     }
 
+    const assigneeStaff = await this.enrichAssigneeStaffForAdmin(payload, item.assigneeStaff);
+
     return this.sanitizeCaseForActor(payload, {
       ...item,
+      assigneeStaff,
       unprocessableTier1Staff,
       ...this.resolveCaseAssignees(item),
       statusLabel: STATUS_LABELS[item.status],

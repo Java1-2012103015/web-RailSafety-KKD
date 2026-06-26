@@ -193,13 +193,12 @@ function resolveAdminTier1Credentials(item) {
   const assigned = item?.assigneeStaff?.tier === 1 ? item.assigneeStaff : null;
   const formEmail = document.getElementById("sr-admin-tier1-email")?.value.trim() ?? "";
   const formAuthKey = document.getElementById("sr-admin-tier1-auth-key")?.value.trim() ?? "";
-  const authDisabled = document.getElementById("sr-admin-tier1-auth-key")?.disabled;
   const smsEmail = document.getElementById("sr-sms-email")?.value.trim() ?? "";
   const smsAuthKey = document.getElementById("sr-sms-auth-key")?.value.trim() ?? "";
 
   let email = smsEmail || pending?.email || assigned?.email || formEmail || "";
-  let authKey = smsAuthKey || pending?.authKey || "";
-  if (!authKey && formAuthKey && !authDisabled) authKey = formAuthKey;
+  let authKey = smsAuthKey || pending?.authKey || assigned?.authKey || "";
+  if (!authKey && formAuthKey) authKey = formAuthKey;
   if (!authKey && email) authKey = loadAuthKeyByEmail(email) ?? "";
 
   if (assigned && item?.id) {
@@ -236,8 +235,13 @@ function syncSmsCredentialFields(item, session, force = false) {
   const authEl = document.getElementById("sr-sms-auth-key");
   if (!emailEl || !authEl || !session) return;
   const creds = resolveSmsCredentialFields(item, session);
-  if (force || !emailEl.value.trim()) emailEl.value = creds.email;
-  if (force || !authEl.value.trim()) authEl.value = creds.authKey;
+  if (force) {
+    emailEl.value = creds.email;
+    authEl.value = creds.authKey;
+    return;
+  }
+  if (!emailEl.value.trim()) emailEl.value = creds.email;
+  if (!authEl.value.trim()) authEl.value = creds.authKey;
 }
 
 function buildTier1CredentialSmsMessage(pending) {
@@ -424,6 +428,15 @@ function applyAdminTier1EmailCheckUI(check) {
     authKeyEl.placeholder = check.authKey ? "기존 계정 패스키 (자동 조회)" : "기존 계정 — 저장된 패스키 없음";
     msgEl.textContent = check.message;
     msgEl.className = "text-xs text-amber-700";
+  }
+
+  if (check.authKey && check.email) {
+    saveAuthKeyByEmail(check.email, check.authKey);
+  }
+  if (document.getElementById("sr-sms-message") && srState.currentCase) {
+    srState.smsMessageEdited = false;
+    syncSmsCredentialFields(srState.currentCase, getSrSession(), true);
+    renderSmsTemplatePreview(true);
   }
 }
 
@@ -2298,7 +2311,7 @@ function bindSmsSendActions() {
   ["sr-sms-email", "sr-sms-auth-key"].forEach((id) => {
     document.getElementById(id)?.addEventListener("input", () => {
       srState.smsMessageEdited = false;
-      renderSmsTemplatePreview(false);
+      renderSmsTemplatePreview(true);
     });
   });
   document.getElementById("sr-sms-message")?.addEventListener("input", () => {
@@ -2351,7 +2364,8 @@ async function appendSmsSendSection(session, item) {
       <input id="sr-sms-email" type="email" placeholder="배정 대상 이메일" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" autocomplete="off" />
       <label class="block text-xs font-semibold text-gray-700" for="sr-sms-auth-key">패스키</label>
       <input id="sr-sms-auth-key" type="text" placeholder="배정 대상 패스키" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" autocomplete="off" />
-      <p class="text-[11px] text-gray-500">이메일·패스키·접속 사이트가 문자에 포함됩니다. 신규 배정 시 자동으로 채워집니다.</p>
+      <p class="text-[11px] text-gray-500">이메일·패스키·접속 사이트가 문자에 포함됩니다. 1차 담당 배정 시 자동으로 채워집니다.</p>
+      <p class="text-[11px] font-semibold text-gray-600">문자 미리보기</p>
       <label class="block text-xs font-semibold text-gray-700" for="sr-sms-message">문자 내용</label>
       <textarea id="sr-sms-message" rows="7" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" placeholder="템플릿 내용이 자동으로 채워집니다. 필요 시 수정하세요."></textarea>
       <button type="button" id="sr-sms-send-btn" class="rounded border border-navy-700 bg-white px-4 py-2 text-sm font-semibold text-navy-900 hover:bg-navy-50">문자 발송</button>
@@ -2448,8 +2462,10 @@ async function openCaseDetail(caseId) {
         staffId: item.assigneeStaff.id,
         name: item.assigneeStaff.name,
         email: stored?.email || item.assigneeStaff.email || "",
-        authKey: stored?.authKey ?? srState.pendingTier1Staff?.authKey ?? null,
-        isExisting: !stored?.authKey && !srState.pendingTier1Staff?.authKey,
+        authKey: stored?.authKey ?? item.assigneeStaff?.authKey ?? srState.pendingTier1Staff?.authKey ?? null,
+        isExisting: Boolean(
+          item.assigneeStaff?.authKey || stored?.authKey || srState.pendingTier1Staff?.authKey,
+        ),
       };
     } else if (srState.pendingTier1Staff?.caseId !== item.id) {
       srState.pendingTier1Staff = null;
