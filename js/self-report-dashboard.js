@@ -166,6 +166,55 @@ function getSelfReportDashboardUrl() {
   return `${window.location.origin}/dashboard/self-report`;
 }
 
+const SR_SMS_SEND_STATUS_MS = 5000;
+
+function renderSmsSendButtonRow(buttonId, label, buttonClass = "rounded bg-navy-900 px-4 py-2 text-sm font-semibold text-white hover:bg-navy-800") {
+  return `
+    <div class="sr-sms-send-row flex flex-wrap items-center gap-2">
+      <button type="button" id="${buttonId}" class="${buttonClass}">${label}</button>
+      <span class="sr-sms-send-status hidden text-sm font-semibold" aria-live="polite"></span>
+    </div>`;
+}
+
+function lockSmsSendButton(button) {
+  if (!button) return;
+  button.disabled = true;
+  button.classList.add("opacity-50", "cursor-not-allowed");
+  button.setAttribute("aria-disabled", "true");
+}
+
+function unlockSmsSendButton(button) {
+  if (!button) return;
+  button.disabled = false;
+  button.classList.remove("opacity-50", "cursor-not-allowed");
+  button.removeAttribute("aria-disabled");
+}
+
+function isSmsSendLocked(button) {
+  return Boolean(button?.disabled);
+}
+
+function showSmsSendStatus(button, message, isError = false) {
+  if (!button) return;
+  const statusEl = button.closest(".sr-sms-send-row")?.querySelector(".sr-sms-send-status");
+  if (!statusEl) return;
+  statusEl.textContent = message;
+  statusEl.classList.remove("hidden", "text-green-700", "text-red-600");
+  statusEl.classList.add(isError ? "text-red-600" : "text-green-700");
+  if (statusEl._srHideTimer) clearTimeout(statusEl._srHideTimer);
+
+  if (!isError) {
+    lockSmsSendButton(button);
+    return;
+  }
+
+  statusEl._srHideTimer = setTimeout(() => {
+    statusEl.textContent = "";
+    statusEl.classList.add("hidden");
+    statusEl.classList.remove("text-red-600");
+  }, SR_SMS_SEND_STATUS_MS);
+}
+
 function loadStoredTier2AuthKey(caseId, staffId) {
   try {
     const map = JSON.parse(sessionStorage.getItem(SR_TIER2_AUTH_KEY_STORAGE) || "{}");
@@ -1078,7 +1127,7 @@ function renderTier2AssignmentSmsHtml(staffName = "") {
       <label class="block text-xs font-semibold text-gray-700" for="sr-tier2-assign-sms-message">문자 내용</label>
       <textarea id="sr-tier2-assign-sms-message" rows="7" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" placeholder="템플릿 내용이 자동으로 채워집니다. 필요 시 수정하세요."></textarea>
       <p class="text-[11px] text-gray-500">이메일·패스키·접속 사이트가 문자에 포함됩니다. 접속 사이트는 관리자 메뉴에서 설정할 수 있습니다.</p>
-      <button type="button" id="sr-tier2-assign-sms-send-btn" class="rounded bg-navy-900 px-4 py-2 text-sm font-semibold text-white hover:bg-navy-800">전송</button>
+      ${renderSmsSendButtonRow("sr-tier2-assign-sms-send-btn", "전송")}
     </div>`;
 }
 
@@ -1117,7 +1166,7 @@ function renderTier2CredentialSmsHtml() {
       <p class="text-[11px] text-gray-500">이메일·패스키·접속 주소가 문자로 전송됩니다. 번호는 저장되지 않습니다.</p>
       <p class="text-[11px] font-semibold text-gray-600">문자 미리보기</p>
       <p id="sr-tier2-credential-sms-preview" class="rounded border border-gray-200 bg-white p-2 text-xs text-gray-600 whitespace-pre-wrap"></p>
-      <button type="button" id="sr-tier2-credential-sms-btn" class="rounded bg-navy-900 px-4 py-2 text-sm font-semibold text-white">접속안내 문자 발송</button>
+      ${renderSmsSendButtonRow("sr-tier2-credential-sms-btn", "접속안내 문자 발송")}
     </div>`;
 }
 
@@ -1339,7 +1388,7 @@ function renderTier2TransferSmsHtml(staffName = "") {
       <label class="block text-xs font-semibold text-gray-700" for="sr-transfer-sms-message">문자 내용</label>
       <textarea id="sr-transfer-sms-message" rows="7" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" placeholder="템플릿 내용이 자동으로 채워집니다. 필요 시 수정하세요."></textarea>
       <p class="text-[11px] text-gray-500">이첩사유·이메일·패스키·접속 사이트가 문자에 포함됩니다.</p>
-      <button type="button" id="sr-transfer-sms-send-btn" class="rounded bg-navy-900 px-4 py-2 text-sm font-semibold text-white hover:bg-navy-800">이첩알림 문자 보내기</button>
+      ${renderSmsSendButtonRow("sr-transfer-sms-send-btn", "이첩알림 문자 보내기")}
     </div>`;
 }
 
@@ -1866,12 +1915,15 @@ function bindTier2StaffActions() {
   });
 
   document.getElementById("sr-tier2-credential-sms-btn")?.addEventListener("click", async () => {
+    const sendBtn = document.getElementById("sr-tier2-credential-sms-btn");
+    if (isSmsSendLocked(sendBtn)) return;
     const pending = srState.pendingTier2Staff;
     const phone = document.getElementById("sr-tier2-credential-phone")?.value.trim() ?? "";
     if (!phone) return alert("수신 번호를 입력해 주세요.");
     if (!pending?.authKey) {
       return alert("기존 계정은 패스키를 알 수 없어 접속안내 문자를 발송할 수 없습니다.");
     }
+    lockSmsSendButton(sendBtn);
     try {
       const result = await srApiFetch("/api/self-report/send-tier2-account-sms", {
         method: "POST",
@@ -1884,9 +1936,10 @@ function bindTier2StaffActions() {
         },
       });
       document.getElementById("sr-tier2-credential-phone").value = "";
-      alert(result.message ?? "접속안내 문자를 발송했습니다.");
+      showSmsSendStatus(sendBtn, result.message ?? "전송완료");
     } catch (error) {
-      alert(error.message ?? "문자 발송에 실패했습니다.");
+      unlockSmsSendButton(sendBtn);
+      showSmsSendStatus(sendBtn, error.message ?? "문자 발송에 실패했습니다.", true);
     }
   });
 
@@ -1956,12 +2009,15 @@ function bindTier2StaffActions() {
   renderTier2AssignmentSmsPreview(true);
 
   document.getElementById("sr-tier2-assign-sms-send-btn")?.addEventListener("click", async () => {
+    const sendBtn = document.getElementById("sr-tier2-assign-sms-send-btn");
+    if (isSmsSendLocked(sendBtn)) return;
     const phone = document.getElementById("sr-tier2-assign-sms-phone")?.value.trim() ?? "";
     const recipientName = document.getElementById("sr-tier2-assign-sms-recipient-name")?.value.trim() ?? "";
     const message = document.getElementById("sr-tier2-assign-sms-message")?.value.trim() ?? "";
     const creds = resolveTier2AssigneeCredentials(srState.currentCase);
     if (!phone) return alert("수신 연락처를 입력해 주세요.");
     if (!message) return alert("문자 내용을 입력해 주세요.");
+    lockSmsSendButton(sendBtn);
     try {
       const result = await srApiFetch(`/api/self-report/cases/${srState.currentCase.id}/send-sms`, {
         method: "POST",
@@ -1977,10 +2033,10 @@ function bindTier2StaffActions() {
       document.getElementById("sr-tier2-assign-sms-phone").value = "";
       srState.tier2AssignSmsEdited = false;
       renderTier2AssignmentSmsPreview(true);
-      alert(result.message ?? "배정알림 문자를 발송했습니다.");
-      await openCaseDetail(srState.currentCase.id);
+      showSmsSendStatus(sendBtn, result.message ?? "전송완료");
     } catch (error) {
-      alert(error.message ?? "문자 발송에 실패했습니다.");
+      unlockSmsSendButton(sendBtn);
+      showSmsSendStatus(sendBtn, error.message ?? "문자 발송에 실패했습니다.", true);
     }
   });
 }
@@ -2319,11 +2375,14 @@ function bindSmsSendActions() {
   });
 
   document.getElementById("sr-sms-send-btn")?.addEventListener("click", async () => {
+    const sendBtn = document.getElementById("sr-sms-send-btn");
+    if (isSmsSendLocked(sendBtn)) return;
     const phone = document.getElementById("sr-sms-phone")?.value.trim() ?? "";
     const recipientName = document.getElementById("sr-sms-recipient-name")?.value.trim() ?? "";
     const message = document.getElementById("sr-sms-message")?.value.trim() ?? "";
     if (!phone) return alert("수신 휴대폰 번호를 입력해 주세요.");
     if (!message) return alert("문자 내용을 입력해 주세요.");
+    lockSmsSendButton(sendBtn);
     try {
       const result = await srApiFetch(`/api/self-report/cases/${srState.currentCase.id}/send-sms`, {
         method: "POST",
@@ -2333,10 +2392,10 @@ function bindSmsSendActions() {
       document.getElementById("sr-sms-recipient-name").value = "";
       srState.smsMessageEdited = false;
       renderSmsTemplatePreview(true);
-      alert(result.message ?? "문자를 발송했습니다.");
-      await openCaseDetail(srState.currentCase.id);
+      showSmsSendStatus(sendBtn, result.message ?? "전송완료");
     } catch (error) {
-      alert(error.message ?? "문자 발송에 실패했습니다.");
+      unlockSmsSendButton(sendBtn);
+      showSmsSendStatus(sendBtn, error.message ?? "문자 발송에 실패했습니다.", true);
     }
   });
 }
@@ -2368,7 +2427,7 @@ async function appendSmsSendSection(session, item) {
       <p class="text-[11px] font-semibold text-gray-600">문자 미리보기</p>
       <label class="block text-xs font-semibold text-gray-700" for="sr-sms-message">문자 내용</label>
       <textarea id="sr-sms-message" rows="7" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" placeholder="템플릿 내용이 자동으로 채워집니다. 필요 시 수정하세요."></textarea>
-      <button type="button" id="sr-sms-send-btn" class="rounded border border-navy-700 bg-white px-4 py-2 text-sm font-semibold text-navy-900 hover:bg-navy-50">문자 발송</button>
+      ${renderSmsSendButtonRow("sr-sms-send-btn", "문자 발송", "rounded border border-navy-700 bg-white px-4 py-2 text-sm font-semibold text-navy-900 hover:bg-navy-50")}
     </div>`,
   );
   renderSmsTemplatePreview(true);
@@ -2923,12 +2982,15 @@ function bindTier2TransferActions() {
   });
 
   document.getElementById("sr-transfer-sms-send-btn")?.addEventListener("click", async () => {
+    const sendBtn = document.getElementById("sr-transfer-sms-send-btn");
+    if (isSmsSendLocked(sendBtn)) return;
     const phone = document.getElementById("sr-transfer-sms-phone")?.value.trim() ?? "";
     const recipientName = document.getElementById("sr-transfer-sms-recipient-name")?.value.trim() ?? "";
     const message = document.getElementById("sr-transfer-sms-message")?.value.trim() ?? "";
     const creds = resolveTransferStaffCredentials(srState.currentCase);
     if (!phone) return alert("수신 연락처를 입력해 주세요.");
     if (!message) return alert("문자 내용을 입력해 주세요.");
+    lockSmsSendButton(sendBtn);
     try {
       const result = await srApiFetch(`/api/self-report/cases/${srState.currentCase.id}/send-sms`, {
         method: "POST",
@@ -2945,9 +3007,10 @@ function bindTier2TransferActions() {
       document.getElementById("sr-transfer-sms-phone").value = "";
       srState.transferSmsEdited = false;
       renderTier2TransferSmsPreview(true);
-      alert(result.message ?? "이첩알림 문자를 발송했습니다.");
+      showSmsSendStatus(sendBtn, result.message ?? "전송완료");
     } catch (error) {
-      alert(error.message ?? "문자 발송에 실패했습니다.");
+      unlockSmsSendButton(sendBtn);
+      showSmsSendStatus(sendBtn, error.message ?? "문자 발송에 실패했습니다.", true);
     }
   });
 
