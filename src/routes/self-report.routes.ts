@@ -20,6 +20,7 @@ router.get("/cases", controller.listCases);
 router.get("/cases/sample-csv", authorizeSelfReportRoles(ROLES.ADMIN), controller.getCasesSampleCsv);
 router.post("/cases/bulk-csv", authorizeSelfReportRoles(ROLES.ADMIN), controller.bulkCreateCasesFromCsv);
 router.post("/cases/bulk-attachments", authorizeSelfReportRoles(ROLES.ADMIN), controller.bulkUploadAttachments);
+router.post("/cases/bulk-delete", authorizeSelfReportRoles(ROLES.ADMIN), controller.bulkDeleteCases);
 router.get("/cases/:id", controller.getCase);
 router.post("/cases", authorizeSelfReportRoles(ROLES.ADMIN), controller.createCase);
 router.post("/cases/:id/assign-admin", authorizeSelfReportRoles(ROLES.ADMIN), controller.assignAdmin);

@@ -50,6 +50,15 @@ export function normalizeSelfReportReceiptNumber(value: string): string {
   return normalized;
 }
 
+/** SR-YYYYMMDD-일련번호 또는 일련번호(숫자)만 입력된 경우 등록번호로 정규화 */
+export function normalizeSelfReportReceiptNumberInput(value: string): string {
+  const trimmed = value.trim();
+  if (FULL_RECEIPT_NUMBER_PATTERN.test(trimmed)) {
+    return trimmed.toUpperCase();
+  }
+  return normalizeSelfReportSerialNo(trimmed);
+}
+
 export function buildReceiptNumberFromSerial(serialNo: string, date = new Date()): string {
   const serial = normalizeSelfReportSerialNo(serialNo);
   const y = date.getFullYear();
@@ -58,7 +67,19 @@ export function buildReceiptNumberFromSerial(serialNo: string, date = new Date()
   return `SR-${y}${m}${d}-${serial}`;
 }
 
-function parseCsvRows(text: string): string[][] {
+function detectCsvDelimiter(text: string): string {
+  const firstLine = text.split(/\r?\n/).find((line) => line.trim()) ?? "";
+  const counts = {
+    ",": (firstLine.match(/,/g) ?? []).length,
+    ";": (firstLine.match(/;/g) ?? []).length,
+    "\t": (firstLine.match(/\t/g) ?? []).length,
+  };
+  if (counts[";"] > counts[","] && counts[";"] >= counts["\t"]) return ";";
+  if (counts["\t"] > counts[","]) return "\t";
+  return ",";
+}
+
+function parseCsvRows(text: string, delimiter = ","): string[][] {
   const lines: string[][] = [];
   let row = [""];
   let inQuotes = false;
@@ -73,7 +94,7 @@ function parseCsvRows(text: string): string[][] {
       } else {
         inQuotes = !inQuotes;
       }
-    } else if (c === "," && !inQuotes) {
+    } else if (c === delimiter && !inQuotes) {
       row.push("");
     } else if ((c === "\r" || c === "\n") && !inQuotes) {
       if (c === "\r" && next === "\n") i++;
@@ -101,7 +122,9 @@ export function parseSelfReportCaseCsv(csv?: string): SelfReportCaseCsvInput[] {
     throw new HttpError(400, "CSV 내용이 비어 있습니다.");
   }
 
-  const rows = parseCsvRows(csv.trim());
+  const trimmed = csv.trim();
+  const delimiter = detectCsvDelimiter(trimmed);
+  const rows = parseCsvRows(trimmed, delimiter);
   if (rows.length < 2) {
     throw new HttpError(400, "유효한 CSV 데이터 행을 찾을 수 없습니다.");
   }
@@ -112,10 +135,11 @@ export function parseSelfReportCaseCsv(csv?: string): SelfReportCaseCsvInput[] {
   const reporterIdx = headerIndex(headers, ["신고자명", "reportername", "신고자"]);
   const phoneIdx = headerIndex(headers, ["연락처", "reporterphone", "전화번호"]);
   const locationIdx = headerIndex(headers, ["위치", "location"]);
-  const receiptIdx = headerIndex(headers, ["접수번호", "receiptnumber"]);
+  const receiptIdx = headerIndex(headers, ["접수번호", "등록번호", "receiptnumber"]);
   const serialIdx = headerIndex(headers, [
     "일련번호",
     "접수번호일련번호",
+    "등록번호일련번호",
     "serialno",
     "serial",
   ]);
@@ -143,10 +167,10 @@ export function parseSelfReportCaseCsv(csv?: string): SelfReportCaseCsvInput[] {
     let serialNo: string | undefined;
 
     if (receiptRaw) {
-      receiptNumber = normalizeSelfReportReceiptNumber(receiptRaw);
+      receiptNumber = normalizeSelfReportReceiptNumberInput(receiptRaw);
     } else if (serialRaw) {
       serialNo = normalizeSelfReportSerialNo(serialRaw);
-      receiptNumber = buildReceiptNumberFromSerial(serialNo);
+      receiptNumber = serialNo;
     }
 
     if (receiptNumber) {
@@ -168,7 +192,7 @@ export function parseSelfReportCaseCsv(csv?: string): SelfReportCaseCsvInput[] {
   }
 
   if (!parsed.length) {
-    throw new HttpError(400, "등록할 민원 데이터가 없습니다.");
+    throw new HttpError(400, "등록할 보고 데이터가 없습니다.");
   }
   if (parsed.length > MAX_SELF_REPORT_CASE_CSV_ROWS) {
     throw new HttpError(400, `한 번에 최대 ${MAX_SELF_REPORT_CASE_CSV_ROWS}건까지 등록할 수 있습니다.`);

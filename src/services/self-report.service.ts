@@ -19,6 +19,7 @@ import {
 } from "./self-report-user-sync.service";
 import {
   deleteSelfReportAttachmentFile,
+  deleteSelfReportCaseAttachmentDir,
   MAX_ATTACHMENTS_PER_CASE,
   parseAttachmentDataUrl,
   saveSelfReportAttachment,
@@ -26,8 +27,7 @@ import {
 import {
   parseSelfReportCaseCsv,
   SELF_REPORT_CASE_SAMPLE_CSV,
-  buildReceiptNumberFromSerial,
-  normalizeSelfReportReceiptNumber,
+  normalizeSelfReportReceiptNumberInput,
   normalizeSelfReportSerialNo,
 } from "../utils/self-report-case-csv";
 import {
@@ -323,9 +323,9 @@ export class SelfReportService {
   }): Promise<string> {
     let receiptNumber: string;
     if (input.receiptNumber?.trim()) {
-      receiptNumber = normalizeSelfReportReceiptNumber(input.receiptNumber);
+      receiptNumber = normalizeSelfReportReceiptNumberInput(input.receiptNumber);
     } else if (input.serialNo?.trim()) {
-      receiptNumber = buildReceiptNumberFromSerial(input.serialNo);
+      receiptNumber = normalizeSelfReportSerialNo(input.serialNo);
     } else {
       return this.generateReceiptNumber();
     }
@@ -430,7 +430,7 @@ export class SelfReportService {
 
   async getCase(payload: SelfReportActor, caseId: number) {
     const item = await this.selfReportRepository.findCaseById(caseId);
-    if (!item) throw new HttpError(404, "민원을 찾을 수 없습니다.");
+    if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
     this.assertCaseAccess(payload, item.institutionId, item.assigneeStaffId);
 
     let unprocessableTier1Staff: { id: number; name: string; phone: string | null } | null = null;
@@ -453,7 +453,7 @@ export class SelfReportService {
 
   private assertTier1InstitutionCase(actor: ActorContext, institutionId: number | null) {
     if (institutionId !== actor.institutionId) {
-      throw new HttpError(403, "소속 기관 민원만 처리할 수 있습니다.");
+      throw new HttpError(403, "소속 기관 보고만 처리할 수 있습니다.");
     }
   }
 
@@ -463,7 +463,7 @@ export class SelfReportService {
       intakeDecision === "RETURN_TO_ADMIN" ||
       intakeDecision === "ALREADY_COMPLETED"
     ) {
-      throw new HttpError(400, "이미 접수 결정이 완료된 민원입니다.");
+      throw new HttpError(400, "이미 접수 결정이 완료된 보고입니다.");
     }
   }
 
@@ -486,7 +486,7 @@ export class SelfReportService {
     }
     const actor = this.actorFromPayload(payload);
     const item = await this.selfReportRepository.findCaseById(caseId);
-    if (!item) throw new HttpError(404, "민원을 찾을 수 없습니다.");
+    if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
     this.assertTier1InstitutionCase(actor, item.institutionId);
 
     if (item.intakeDecision === "PROCESS" && input.decision === "PROCESS") {
@@ -549,15 +549,15 @@ export class SelfReportService {
     }
     const actor = this.actorFromPayload(payload);
     const item = await this.selfReportRepository.findCaseById(caseId);
-    if (!item) throw new HttpError(404, "민원을 찾을 수 없습니다.");
+    if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
     this.assertTier1InstitutionCase(actor, item.institutionId);
 
     if (item.intakeDecision !== "PROCESS") {
-      throw new HttpError(400, "접수에서 '처리 결정'을 선택한 민원만 상태를 변경할 수 있습니다.");
+      throw new HttpError(400, "접수에서 '처리 결정'을 선택한 보고만 상태를 변경할 수 있습니다.");
     }
 
     if (input.decision === "REASSIGN_TIER2" && item.processingPath !== "TIER2_ASSIGN") {
-      throw new HttpError(400, "'2차 담당 배정' 처리 중인 민원만 재배정할 수 있습니다.");
+      throw new HttpError(400, "'2차 담당 배정' 처리 중인 보고만 재배정할 수 있습니다.");
     }
 
     const actorName = this.actorDisplayName(actor);
@@ -650,7 +650,7 @@ export class SelfReportService {
     }
     const actor = this.actorFromPayload(payload);
     const item = await this.selfReportRepository.findCaseById(caseId);
-    if (!item) throw new HttpError(404, "민원을 찾을 수 없습니다.");
+    if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
     this.assertTier1InstitutionCase(actor, item.institutionId);
 
     if (item.intakeDecision !== "PROCESS") {
@@ -701,11 +701,11 @@ export class SelfReportService {
   ) {
     const actor = this.actorFromPayload(payload);
     const item = await this.selfReportRepository.findCaseById(caseId);
-    if (!item) throw new HttpError(404, "민원을 찾을 수 없습니다.");
+    if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
 
     if (payload.role === ROLES.SELF_REPORT_TIER2) {
       if (item.assigneeStaffId !== actor.staffId) {
-        throw new HttpError(403, "본인에게 배정된 민원만 처리계획을 등록할 수 있습니다.");
+        throw new HttpError(403, "본인에게 배정된 보고만 처리계획을 등록할 수 있습니다.");
       }
     } else if (payload.role === ROLES.SELF_REPORT_TIER1) {
       this.assertTier1InstitutionCase(actor, item.institutionId);
@@ -776,7 +776,7 @@ export class SelfReportService {
     }
     const actor = this.actorFromPayload(payload);
     const item = await this.selfReportRepository.findCaseById(caseId);
-    if (!item) throw new HttpError(404, "민원을 찾을 수 없습니다.");
+    if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
     this.assertTier1InstitutionCase(actor, item.institutionId);
     this.assertIntakeNotFinalized(item.intakeDecision);
 
@@ -862,9 +862,9 @@ export class SelfReportService {
     }
     const actor = this.actorFromPayload(payload);
     const item = await this.selfReportRepository.findCaseById(caseId);
-    if (!item) throw new HttpError(404, "민원을 찾을 수 없습니다.");
+    if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
     if (item.assigneeStaffId !== actor.staffId) {
-      throw new HttpError(403, "본인에게 배정된 민원만 기처리할 수 있습니다.");
+      throw new HttpError(403, "본인에게 배정된 보고만 기처리할 수 있습니다.");
     }
 
     const priorCompletionContent = input.priorCompletionContent?.trim() || null;
@@ -907,7 +907,7 @@ export class SelfReportService {
     }
     if (actor.role === ROLES.SELF_REPORT_TIER2) {
       if (institutionId !== actor.institutionId) throw new HttpError(403, "접근 권한이 없습니다.");
-      if (assigneeStaffId !== actor.staffId) throw new HttpError(403, "배정된 민원만 조회할 수 있습니다.");
+      if (assigneeStaffId !== actor.staffId) throw new HttpError(403, "배정된 보고만 조회할 수 있습니다.");
       return;
     }
     throw new HttpError(403, "접근 권한이 없습니다.");
@@ -924,7 +924,7 @@ export class SelfReportService {
     },
   ) {
     if (payload.role !== ROLES.ADMIN) {
-      throw new HttpError(403, "관리자만 민원을 등록할 수 있습니다.");
+      throw new HttpError(403, "관리자만 보고를 등록할 수 있습니다.");
     }
 
     return this.createCaseRecord(payload, input);
@@ -936,7 +936,7 @@ export class SelfReportService {
 
   async bulkCreateCasesFromCsv(payload: SelfReportActor, csv: string) {
     if (payload.role !== ROLES.ADMIN) {
-      throw new HttpError(403, "관리자만 민원을 일괄 등록할 수 있습니다.");
+      throw new HttpError(403, "관리자만 보고를 일괄 등록할 수 있습니다.");
     }
 
     const rows = parseSelfReportCaseCsv(csv);
@@ -999,7 +999,7 @@ export class SelfReportService {
         if (!targetCase) {
           errors.push({
             fileName: originalName,
-            reason: `접수번호 ${parsed.receiptNumber} 민원을 찾을 수 없습니다.`,
+            reason: `접수번호 ${parsed.receiptNumber} 보고를 찾을 수 없습니다.`,
           });
           continue;
         }
@@ -1008,14 +1008,14 @@ export class SelfReportService {
         if (!matches.length) {
           errors.push({
             fileName: originalName,
-            reason: `일련번호 ${parsed.serialKey}에 해당하는 민원을 찾을 수 없습니다.`,
+            reason: `일련번호 ${parsed.serialKey}에 해당하는 보고를 찾을 수 없습니다.`,
           });
           continue;
         }
         if (matches.length > 1) {
           errors.push({
             fileName: originalName,
-            reason: `일련번호 ${parsed.serialKey}에 해당하는 민원이 ${matches.length}건입니다. 접수번호를 포함한 파일명을 사용해 주세요.`,
+            reason: `일련번호 ${parsed.serialKey}에 해당하는 보고가 ${matches.length}건입니다. 접수번호를 포함한 파일명을 사용해 주세요.`,
           });
           continue;
         }
@@ -1031,7 +1031,7 @@ export class SelfReportService {
       if (currentCount >= MAX_ATTACHMENTS_PER_CASE) {
         errors.push({
           fileName: originalName,
-          reason: `첨부파일은 민원당 최대 ${MAX_ATTACHMENTS_PER_CASE}개까지 등록할 수 있습니다.`,
+          reason: `첨부파일은 보고당 최대 ${MAX_ATTACHMENTS_PER_CASE}개까지 등록할 수 있습니다.`,
         });
         continue;
       }
@@ -1122,13 +1122,38 @@ export class SelfReportService {
 
     await this.selfReportRepository.createHistory({
       caseId: created.id,
-      action: "민원 접수",
-      note: options?.historyNote ?? "관리자가 민원을 등록했습니다.",
+      action: "보고 접수",
+      note: options?.historyNote ?? "관리자가 보고를 등록했습니다.",
       actorName: actor.userName ?? "관리자",
       actorRole: ROLES.ADMIN,
     });
 
     return created;
+  }
+
+  async bulkDeleteCases(payload: SelfReportActor, ids: number[]) {
+    if (payload.role !== ROLES.ADMIN) {
+      throw new HttpError(403, "관리자만 보고를 삭제할 수 있습니다.");
+    }
+
+    const uniqueIds = [...new Set(ids.filter((id) => Number.isInteger(id) && id > 0))];
+    if (!uniqueIds.length) {
+      throw new HttpError(400, "삭제할 보고를 선택해 주세요.");
+    }
+    if (uniqueIds.length > 200) {
+      throw new HttpError(400, "한 번에 최대 200건까지 삭제할 수 있습니다.");
+    }
+
+    const attachments = await this.selfReportRepository.listAttachmentsByCaseIds(uniqueIds);
+    for (const attachment of attachments) {
+      await deleteSelfReportAttachmentFile(attachment.url);
+    }
+    for (const caseId of uniqueIds) {
+      await deleteSelfReportCaseAttachmentDir(caseId);
+    }
+
+    const result = await this.selfReportRepository.deleteCasesByIds(uniqueIds);
+    return { deleted: result.count, ids: uniqueIds };
   }
 
   async assignByAdmin(
@@ -1148,7 +1173,7 @@ export class SelfReportService {
     const actor = this.actorFromPayload(payload);
 
     const item = await this.selfReportRepository.findCaseById(caseId);
-    if (!item) throw new HttpError(404, "민원을 찾을 수 없습니다.");
+    if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
 
     const institution = await this.selfReportRepository.findInstitutionById(input.institutionId);
     if (!institution || !institution.enabled) throw new HttpError(400, "배정할 기관을 찾을 수 없습니다.");
@@ -1501,9 +1526,9 @@ export class SelfReportService {
     const actor = this.actorFromPayload(payload);
 
     const item = await this.selfReportRepository.findCaseById(caseId);
-    if (!item) throw new HttpError(404, "민원을 찾을 수 없습니다.");
+    if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
     if (item.institutionId !== actor.institutionId) {
-      throw new HttpError(403, "소속 기관 민원만 처리할 수 있습니다.");
+      throw new HttpError(403, "소속 기관 보고만 처리할 수 있습니다.");
     }
     if (item.intakeDecision !== "PROCESS") {
       throw new HttpError(400, "접수에서 '처리 결정'을 선택한 후 진행할 수 있습니다.");
@@ -1603,9 +1628,9 @@ export class SelfReportService {
     const actor = this.actorFromPayload(payload);
 
     const item = await this.selfReportRepository.findCaseById(caseId);
-    if (!item) throw new HttpError(404, "민원을 찾을 수 없습니다.");
+    if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
     if (item.assigneeStaffId !== actor.staffId) {
-      throw new HttpError(403, "본인에게 배정된 민원만 이첩할 수 있습니다.");
+      throw new HttpError(403, "본인에게 배정된 보고만 이첩할 수 있습니다.");
     }
 
     const staff = await this.selfReportRepository.findStaffById(input.toStaffId);
@@ -1655,18 +1680,18 @@ export class SelfReportService {
     }
 
     const item = await this.selfReportRepository.findCaseById(caseId);
-    if (!item) throw new HttpError(404, "민원을 찾을 수 없습니다.");
+    if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
     if (item.assigneeStaffId !== actor.staffId) {
-      throw new HttpError(403, "본인에게 배정된 민원만 처리불가를 요청할 수 있습니다.");
+      throw new HttpError(403, "본인에게 배정된 보고만 처리불가를 요청할 수 있습니다.");
     }
     if (item.status === "UNPROCESSABLE_PENDING") {
-      throw new HttpError(400, "이미 처리불가 확인을 요청한 민원입니다.");
+      throw new HttpError(400, "이미 처리불가 확인을 요청한 보고입니다.");
     }
     if (["COMPLETED", "CLOSED", "UNPROCESSABLE"].includes(item.status)) {
-      throw new HttpError(400, "종결된 민원입니다.");
+      throw new HttpError(400, "종결된 보고입니다.");
     }
     if (!item.institutionId) {
-      throw new HttpError(400, "기관이 배정되지 않은 민원입니다.");
+      throw new HttpError(400, "기관이 배정되지 않은 보고입니다.");
     }
 
     const tier1Staff = await this.resolveTier1AssignerStaff(
@@ -1715,12 +1740,12 @@ export class SelfReportService {
     const actor = this.actorFromPayload(payload);
 
     const item = await this.selfReportRepository.findCaseById(caseId);
-    if (!item) throw new HttpError(404, "민원을 찾을 수 없습니다.");
+    if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
     if (item.institutionId !== actor.institutionId) {
-      throw new HttpError(403, "소속 기관 민원만 처리할 수 있습니다.");
+      throw new HttpError(403, "소속 기관 보고만 처리할 수 있습니다.");
     }
     if (item.status !== "UNPROCESSABLE_PENDING") {
-      throw new HttpError(400, "처리불가 확인 대기 중인 민원이 아닙니다.");
+      throw new HttpError(400, "처리불가 확인 대기 중인 보고가 아닙니다.");
     }
     const reason = item.unprocessableReason?.trim();
     if (!reason) {
@@ -1767,7 +1792,7 @@ export class SelfReportService {
     },
   ) {
     const item = await this.selfReportRepository.findCaseById(caseId);
-    if (!item) throw new HttpError(404, "민원을 찾을 수 없습니다.");
+    if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
 
     const actor = this.actorFromPayload(payload);
     const normalizedPhone = input.phone?.replace(/\D/g, "") ?? "";
@@ -1781,11 +1806,11 @@ export class SelfReportService {
       }
     } else if (payload.role === ROLES.SELF_REPORT_TIER1) {
       if (item.institutionId !== actor.institutionId) {
-        throw new HttpError(403, "소속 기관 민원에만 문자를 발송할 수 있습니다.");
+        throw new HttpError(403, "소속 기관 보고에만 문자를 발송할 수 있습니다.");
       }
     } else if (payload.role === ROLES.SELF_REPORT_TIER2) {
       if (item.assigneeStaffId !== actor.staffId || item.institutionId !== actor.institutionId) {
-        throw new HttpError(403, "본인에게 배정된 민원에만 문자를 발송할 수 있습니다.");
+        throw new HttpError(403, "본인에게 배정된 보고에만 문자를 발송할 수 있습니다.");
       }
     } else {
       throw new HttpError(403, "문자 발송 권한이 없습니다.");
@@ -1855,15 +1880,15 @@ export class SelfReportService {
   ) {
     const actor = this.actorFromPayload(payload);
     const item = await this.selfReportRepository.findCaseById(caseId);
-    if (!item) throw new HttpError(404, "민원을 찾을 수 없습니다.");
+    if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
 
     if (payload.role === ROLES.SELF_REPORT_TIER2) {
       if (item.assigneeStaffId !== actor.staffId) {
-        throw new HttpError(403, "본인에게 배정된 민원만 처리결과를 등록할 수 있습니다.");
+        throw new HttpError(403, "본인에게 배정된 보고만 처리결과를 등록할 수 있습니다.");
       }
     } else if (payload.role === ROLES.SELF_REPORT_TIER1) {
       if (item.institutionId !== actor.institutionId) {
-        throw new HttpError(403, "소속 기관 민원만 처리결과를 등록할 수 있습니다.");
+        throw new HttpError(403, "소속 기관 보고만 처리결과를 등록할 수 있습니다.");
       }
       if (item.intakeDecision !== "PROCESS") {
         throw new HttpError(400, "접수에서 '처리 결정'을 선택한 후 진행할 수 있습니다.");
@@ -1960,7 +1985,7 @@ export class SelfReportService {
     files: Array<{ fileName: string; mimeType: string; data: string }>,
   ) {
     const item = await this.selfReportRepository.findCaseById(caseId);
-    if (!item) throw new HttpError(404, "민원을 찾을 수 없습니다.");
+    if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
     this.assertCaseAccess(payload, item.institutionId, item.assigneeStaffId);
 
     if (!files.length) {
@@ -2018,7 +2043,7 @@ export class SelfReportService {
     }
 
     const item = await this.selfReportRepository.findCaseById(caseId);
-    if (!item) throw new HttpError(404, "민원을 찾을 수 없습니다.");
+    if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
 
     const attachment = await this.selfReportRepository.findAttachmentById(attachmentId);
     if (!attachment || attachment.caseId !== caseId) {
@@ -2042,7 +2067,7 @@ export class SelfReportService {
 
   async updateStatus(payload: SelfReportActor, caseId: number, input: { status: SelfReportStatus; note?: string }) {
     const item = await this.selfReportRepository.findCaseById(caseId);
-    if (!item) throw new HttpError(404, "민원을 찾을 수 없습니다.");
+    if (!item) throw new HttpError(404, "보고를 찾을 수 없습니다.");
     this.assertCaseAccess(payload, item.institutionId, item.assigneeStaffId);
 
     if (payload.role === ROLES.SELF_REPORT_TIER2 && !["TIER2_PROCESSING", "TRANSFERRED", "COMPLETED"].includes(input.status)) {

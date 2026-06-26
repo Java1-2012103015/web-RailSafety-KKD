@@ -132,7 +132,7 @@ export class SelfReportController {
       const result = await selfReportService.bulkCreateCasesFromCsv(getSelfReportActor(req), csv ?? "");
       res.status(201).json({
         data: result,
-        message: `${result.created}건의 민원을 등록했습니다.`,
+        message: `${result.created}건의 보고를 등록했습니다.`,
       });
     } catch (error) {
       next(error);
@@ -156,6 +156,20 @@ export class SelfReportController {
           errorCount > 0
             ? `${result.uploaded}개 등록, ${errorCount}개 실패`
             : `${result.uploaded}개의 첨부파일을 등록했습니다.`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  bulkDeleteCases = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { ids } = req.body as { ids?: number[] };
+      const normalized = (ids ?? []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0);
+      const result = await selfReportService.bulkDeleteCases(getSelfReportActor(req), normalized);
+      res.status(200).json({
+        data: result,
+        message: `${result.deleted}건의 보고를 삭제했습니다.`,
       });
     } catch (error) {
       next(error);

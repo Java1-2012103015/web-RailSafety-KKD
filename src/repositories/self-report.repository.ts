@@ -194,12 +194,15 @@ export class SelfReportRepository {
 
     return prisma.selfReportCase
       .findMany({
-        where: { receiptNumber: { endsWith: `-${normalized}` } },
+        where: {
+          OR: [{ receiptNumber: normalized }, { receiptNumber: { endsWith: `-${normalized}` } }],
+        },
         select: { id: true, receiptNumber: true },
         orderBy: { createdAt: "desc" },
       })
       .then((cases) =>
         cases.filter((item) => {
+          if (item.receiptNumber === normalized) return true;
           const suffix = item.receiptNumber.split("-").pop() ?? "";
           return suffix === normalized;
         }),
@@ -314,5 +317,18 @@ export class SelfReportRepository {
 
   deleteAttachment(id: number) {
     return prisma.selfReportAttachment.delete({ where: { id } });
+  }
+
+  listAttachmentsByCaseIds(caseIds: number[]) {
+    if (!caseIds.length) return Promise.resolve([]);
+    return prisma.selfReportAttachment.findMany({
+      where: { caseId: { in: caseIds } },
+      select: { id: true, caseId: true, url: true },
+    });
+  }
+
+  deleteCasesByIds(ids: number[]) {
+    if (!ids.length) return Promise.resolve({ count: 0 });
+    return prisma.selfReportCase.deleteMany({ where: { id: { in: ids } } });
   }
 }

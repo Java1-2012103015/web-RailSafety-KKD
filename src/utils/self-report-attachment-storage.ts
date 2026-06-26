@@ -89,3 +89,8 @@ export async function deleteSelfReportAttachmentFile(url: string): Promise<void>
   const filePath = path.join(ATTACHMENT_ROOT, relative);
   await fs.unlink(filePath).catch(() => undefined);
 }
+
+export async function deleteSelfReportCaseAttachmentDir(caseId: number): Promise<void> {
+  const caseDir = path.join(ATTACHMENT_ROOT, String(caseId));
+  await fs.rm(caseDir, { recursive: true, force: true }).catch(() => undefined);
+}

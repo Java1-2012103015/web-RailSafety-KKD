@@ -70,25 +70,26 @@ const srState = {
   adminAssignMode: "new",
   adminTier1EmailCheck: null,
   pendingTier1Staff: null,
+  selectedCaseIds: new Set(),
 };
 
 const SR_SMS_TEMPLATE_DEFAULTS = {
   ADMIN_TO_INSTITUTION:
-    "[자율보고] {receiptNumber} 민원 배정 안내\n" +
+    "[자율보고] {receiptNumber} 보고 배정 안내\n" +
     "이메일 ; {email}\n" +
     "패스키 ; {authKey}\n" +
     "접속 사이트 | {dashboardUrl}\n" +
     "로 접속하여 확인하시기 바랍니다.\n" +
     "(배정자 ; {assignerName} (배정자 이메일 ; {assignerEmail}))",
   TIER1_TO_TIER2:
-    "[자율보고] {receiptNumber} 민원 배정 안내\n" +
+    "[자율보고] {receiptNumber} 보고 배정 안내\n" +
     "이메일 ; {email}\n" +
     "패스키 ; {authKey}\n" +
     "접속 사이트 | {dashboardUrl}\n" +
     "로 접속하여 확인하시기 바랍니다.\n" +
     "(배정자 ; {assignerName} (배정자 이메일 ; {assignerEmail}))",
   TIER2_TRANSFER:
-    "[자율보고] {receiptNumber} 민원 이첩 안내\n" +
+    "[자율보고] {receiptNumber} 보고 이첩 안내\n" +
     "이첩사유 ; {transferReason}\n" +
     "이메일 ; {email}\n" +
     "패스키 ; {authKey}\n" +
@@ -647,11 +648,16 @@ function showDashboard() {
   document.getElementById("sr-session-label").textContent = session?.label ?? "";
   document.getElementById("sr-admin-link").classList.toggle("hidden", session?.role !== "ADMIN");
   document.getElementById("sr-admin-create-wrap").classList.toggle("hidden", session?.role !== "ADMIN");
+  document.getElementById("sr-bulk-delete-btn")?.classList.toggle("hidden", session?.role !== "ADMIN");
+  document.getElementById("sr-th-select")?.classList.toggle("hidden", session?.role !== "ADMIN");
+  if (session?.role !== "ADMIN") {
+    srState.selectedCaseIds.clear();
+  }
 
   const desc = {
-    ADMIN: "전체 민원을 조회하고 기관에 배정할 수 있습니다.",
-    SELF_REPORT_TIER1: "소속 기관 민원을 2차 실무담당에게 배정할 수 있습니다.",
-    SELF_REPORT_TIER2: "본인에게 배정된 민원을 처리·이첩할 수 있습니다.",
+    ADMIN: "전체 보고를 조회하고 기관에 배정할 수 있습니다.",
+    SELF_REPORT_TIER1: "소속 기관 보고를 2차 실무담당에게 배정할 수 있습니다.",
+    SELF_REPORT_TIER2: "본인에게 배정된 보고를 처리·이첩할 수 있습니다.",
   };
   document.getElementById("sr-role-desc").textContent = desc[session?.role] ?? "";
 }
@@ -1416,7 +1422,7 @@ function renderTier2ActionsHtml(item, tier2List) {
       </div>`;
   }
   if (finalized) {
-    return `<p class="text-sm text-gray-600">종결된 민원입니다.</p>`;
+    return `<p class="text-sm text-gray-600">종결된 보고입니다.</p>`;
   }
 
   let panelHtml = "";
@@ -1901,34 +1907,95 @@ async function loadCases() {
 
   const result = await srApiFetch(`/api/self-report/cases?${params.toString()}`);
   srState.cases = result.data.items ?? [];
+  const visibleIds = new Set(srState.cases.map((item) => item.id));
+  srState.selectedCaseIds = new Set([...srState.selectedCaseIds].filter((id) => visibleIds.has(id)));
   renderCaseTable();
+  syncCaseSelectAllCheckbox();
+}
+
+function isAdminSession() {
+  return getSrSession()?.role === "ADMIN";
+}
+
+function syncCaseSelectAllCheckbox() {
+  const selectAll = document.getElementById("sr-select-all-cases");
+  if (!selectAll || !isAdminSession()) return;
+  const ids = srState.cases.map((item) => item.id);
+  const selectedOnPage = ids.filter((id) => srState.selectedCaseIds.has(id));
+  selectAll.checked = ids.length > 0 && selectedOnPage.length === ids.length;
+  selectAll.indeterminate = selectedOnPage.length > 0 && selectedOnPage.length < ids.length;
+  const deleteBtn = document.getElementById("sr-bulk-delete-btn");
+  if (deleteBtn) {
+    deleteBtn.textContent =
+      srState.selectedCaseIds.size > 0
+        ? `선택 삭제 (${srState.selectedCaseIds.size})`
+        : "선택 삭제";
+  }
 }
 
 function renderCaseTable() {
   const tbody = document.getElementById("sr-table-body");
   const empty = document.getElementById("sr-empty-msg");
+  const showSelect = isAdminSession();
   if (!srState.cases.length) {
     tbody.innerHTML = "";
     empty.classList.remove("hidden");
+    syncCaseSelectAllCheckbox();
     return;
   }
   empty.classList.add("hidden");
   tbody.innerHTML = srState.cases
-    .map(
-      (item) => `
+    .map((item) => {
+      const checked = srState.selectedCaseIds.has(item.id);
+      const selectCell = showSelect
+        ? `<td class="sr-case-select px-3 py-2" data-case-id="${item.id}">
+            <input type="checkbox" class="sr-case-checkbox h-4 w-4 rounded border-gray-300" data-case-id="${item.id}" ${
+              checked ? "checked" : ""
+            } aria-label="${escapeHtml(item.receiptNumber)} 선택" />
+          </td>`
+        : "";
+      return `
     <tr class="sr-case-row cursor-pointer transition-colors hover:bg-gray-100" data-case-id="${item.id}">
-      <td class="px-3 py-2 font-mono text-xs">${item.receiptNumber}</td>
-      <td class="px-3 py-2">${item.title}</td>
-      <td class="px-3 py-2">${item.statusLabel ?? STATUS_LABELS[item.status] ?? item.status}</td>
-      <td class="px-3 py-2">${item.institution?.name ?? "-"}</td>
+      ${selectCell}
+      <td class="px-3 py-2 font-mono text-xs">${escapeHtml(item.receiptNumber)}</td>
+      <td class="px-3 py-2">${escapeHtml(item.title)}</td>
+      <td class="px-3 py-2">${escapeHtml(item.statusLabel ?? STATUS_LABELS[item.status] ?? item.status)}</td>
+      <td class="px-3 py-2">${escapeHtml(item.institution?.name ?? "-")}</td>
       <td class="px-3 py-2 text-xs">${formatAssigneesSummary(item)}</td>
       <td class="px-3 py-2 whitespace-nowrap">${formatDate(item.createdAt)}</td>
       <td class="px-3 py-2">
         <span class="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700">상세</span>
       </td>
-    </tr>`,
-    )
+    </tr>`;
+    })
     .join("");
+  syncCaseSelectAllCheckbox();
+}
+
+async function deleteSelectedCases() {
+  const ids = [...srState.selectedCaseIds];
+  if (!ids.length) {
+    alert("삭제할 보고를 선택해 주세요.");
+    return;
+  }
+  if (!confirm(`선택한 ${ids.length}건의 보고를 삭제하시겠습니까?\n첨부파일과 처리 이력도 함께 삭제됩니다.`)) {
+    return;
+  }
+  try {
+    const result = await srApiFetch("/api/self-report/cases/bulk-delete", {
+      method: "POST",
+      body: { ids },
+    });
+    srState.selectedCaseIds.clear();
+    if (srState.currentCase && ids.includes(srState.currentCase.id)) {
+      closeDetailModal();
+      srState.currentCase = null;
+    }
+    alert(result.message ?? "선택한 보고를 삭제했습니다.");
+    await loadCases();
+  } catch (error) {
+    alert(error.message ?? "삭제에 실패했습니다.");
+  }
 }
 
 async function loadInstitutionsIfNeeded() {
@@ -2895,7 +2962,7 @@ async function uploadSelfReportBulkCsv() {
       body: { csv },
     });
     statusEl.textContent = result.message ?? `${result.data?.created ?? 0}건 등록 완료`;
-    alert(result.message ?? "민원을 일괄 등록했습니다.");
+    alert(result.message ?? "보고를 일괄 등록했습니다.");
     closeBulkCsvModal();
     await loadCases();
   } catch (error) {
@@ -2962,7 +3029,29 @@ function bindEvents() {
     showLogin();
   });
   document.getElementById("sr-search-btn").addEventListener("click", () => loadCases().catch((e) => alert(e.message)));
+  document.getElementById("sr-bulk-delete-btn")?.addEventListener("click", () => {
+    deleteSelectedCases().catch((error) => alert(error.message ?? "삭제에 실패했습니다."));
+  });
+  document.getElementById("sr-select-all-cases")?.addEventListener("change", (event) => {
+    const checked = event.target.checked;
+    if (checked) {
+      srState.cases.forEach((item) => srState.selectedCaseIds.add(item.id));
+    } else {
+      srState.cases.forEach((item) => srState.selectedCaseIds.delete(item.id));
+    }
+    renderCaseTable();
+  });
   document.getElementById("sr-table-body").addEventListener("click", (event) => {
+    const checkbox = event.target.closest(".sr-case-checkbox");
+    if (checkbox) {
+      const caseId = Number(checkbox.dataset.caseId);
+      if (!caseId) return;
+      if (checkbox.checked) srState.selectedCaseIds.add(caseId);
+      else srState.selectedCaseIds.delete(caseId);
+      syncCaseSelectAllCheckbox();
+      return;
+    }
+    if (event.target.closest(".sr-case-select")) return;
     const row = event.target.closest("tr.sr-case-row");
     if (!row) return;
     openCaseDetail(Number(row.dataset.caseId)).catch((e) => alert(e.message));
@@ -3031,7 +3120,7 @@ async function initSelfReportDashboard() {
       await loadCases();
     } catch (error) {
       if (getPortalBridgeSession()) {
-        alert(error.message ?? "민원 목록을 불러오지 못했습니다.");
+        alert(error.message ?? "보고 목록을 불러오지 못했습니다.");
       } else {
         clearSelfReportSessionOnly();
         showLogin();

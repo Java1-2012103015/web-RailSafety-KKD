@@ -40,21 +40,21 @@ export const REPORTER_SMS_TEMPLATE_TYPES = [
 
 export const DEFAULT_SMS_TEMPLATES: Record<SmsTemplateType, string> = {
   ADMIN_TO_INSTITUTION:
-    "[자율보고] {receiptNumber} 민원 배정 안내\n" +
+    "[자율보고] {receiptNumber} 보고 배정 안내\n" +
     "이메일 ; {email}\n" +
     "패스키 ; {authKey}\n" +
     "접속 사이트 | {dashboardUrl}\n" +
     "로 접속하여 확인하시기 바랍니다.\n" +
     "(배정자 ; {assignerName} (배정자 이메일 ; {assignerEmail}))",
   TIER1_TO_TIER2:
-    "[자율보고] {receiptNumber} 민원 배정 안내\n" +
+    "[자율보고] {receiptNumber} 보고 배정 안내\n" +
     "이메일 ; {email}\n" +
     "패스키 ; {authKey}\n" +
     "접속 사이트 | {dashboardUrl}\n" +
     "로 접속하여 확인하시기 바랍니다.\n" +
     "(배정자 ; {assignerName} (배정자 이메일 ; {assignerEmail}))",
   TIER2_TRANSFER:
-    "[자율보고] {receiptNumber} 민원 이첩 안내\n" +
+    "[자율보고] {receiptNumber} 보고 이첩 안내\n" +
     "이첩사유 ; {transferReason}\n" +
     "이메일 ; {email}\n" +
     "패스키 ; {authKey}\n" +
@@ -62,18 +62,18 @@ export const DEFAULT_SMS_TEMPLATES: Record<SmsTemplateType, string> = {
     "로 접속하여 확인하시기 바랍니다.\n" +
     "(배정자 ; {assignerName} (배정자 이메일 ; {assignerEmail}))",
   TIER1_UNPROCESSABLE_REQUEST:
-    "[자율보고] {receiptNumber} 민원 처리불가 검토 요청\n" +
+    "[자율보고] {receiptNumber} 보고 처리불가 검토 요청\n" +
     "처리불가 사유 ; {unprocessableReason}\n" +
     "접속 사이트 | {dashboardUrl}\n" +
     "대시보드에서 확인 후 처리해 주세요.",
   REPORTER_TIER1_ASSIGNED:
-    "[자율보고] {receiptNumber} 민원이 {institutionName}에 배정되어 처리가 시작됩니다.",
+    "[자율보고] {receiptNumber} 보고가 {institutionName}에 배정되어 처리가 시작됩니다.",
   REPORTER_PLAN_ESTABLISHED:
-    "[자율보고] {receiptNumber} 민원의 조치계획이 수립되었습니다. 계획일: {processingPlanDate}",
+    "[자율보고] {receiptNumber} 보고의 조치계획이 수립되었습니다. 계획일: {processingPlanDate}",
   REPORTER_COMPLETED:
-    "[자율보고] {receiptNumber} 민원 처리가 완료되었습니다. 완료일: {processingResultDate}",
+    "[자율보고] {receiptNumber} 보고 처리가 완료되었습니다. 완료일: {processingResultDate}",
   REPORTER_UNPROCESSABLE:
-    "[자율보고] {receiptNumber} 민원은 처리불가로 종결되었습니다.\n사유 ; {unprocessableReason}",
+    "[자율보고] {receiptNumber} 보고는 처리불가로 종결되었습니다.\n사유 ; {unprocessableReason}",
 };
 
 export const SMS_TEMPLATE_PLACEHOLDERS =
