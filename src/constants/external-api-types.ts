@@ -37,8 +37,8 @@ export const EXTERNAL_API_DEFAULTS: Array<{
   },
   {
     apiType: EXTERNAL_API_TYPES.SMS,
-    name: "문자(SMS) 알림 API",
-    endpointUrl: "",
+    name: "문자(SMS) · 알리고",
+    endpointUrl: "https://apis.aligo.in/send/",
   },
 ];
 

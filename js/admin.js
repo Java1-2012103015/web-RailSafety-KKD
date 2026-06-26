@@ -3915,18 +3915,39 @@ function escapeAdminHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
+function isSmsApiConfigured(config) {
+  const extra = config?.extraConfig ?? {};
+  return Boolean(
+    config?.enabled &&
+      config?.apiKey?.trim() &&
+      extra.aligoUserId?.trim() &&
+      extra.aligoSender?.trim(),
+  );
+}
+
 function updateExternalApiStatusBadge(apiType, config) {
   const badge = document.getElementById(`external-api-status-${apiType}`);
   if (!badge) return;
 
-  const configured = Boolean(config?.enabled && config?.endpointUrl?.trim() && config?.apiKey?.trim());
+  const configured =
+    apiType === "SMS"
+      ? isSmsApiConfigured(config)
+      : Boolean(config?.enabled && config?.endpointUrl?.trim() && config?.apiKey?.trim());
   if (configured) {
     badge.textContent = "사용 중";
     badge.className = "shrink-0 rounded bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800";
     return;
   }
 
-  if (config?.endpointUrl?.trim() || config?.apiKey?.trim()) {
+  const partiallyConfigured =
+    apiType === "SMS"
+      ? Boolean(
+          config?.apiKey?.trim() ||
+            config?.extraConfig?.aligoUserId?.trim() ||
+            config?.extraConfig?.aligoSender?.trim(),
+        )
+      : Boolean(config?.endpointUrl?.trim() || config?.apiKey?.trim());
+  if (partiallyConfigured) {
     badge.textContent = "설정됨";
     badge.className = "shrink-0 rounded bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800";
     return;
@@ -3939,7 +3960,8 @@ function updateExternalApiStatusBadge(apiType, config) {
 function fillExternalApiForm(config) {
   const apiType = config.apiType;
   document.getElementById(`external-api-enabled-${apiType}`).checked = Boolean(config.enabled);
-  document.getElementById(`external-api-endpoint-${apiType}`).value = config.endpointUrl ?? "";
+  document.getElementById(`external-api-endpoint-${apiType}`).value =
+    config.endpointUrl ?? (apiType === "SMS" ? "https://apis.aligo.in/send/" : "");
   document.getElementById(`external-api-key-${apiType}`).value = config.apiKey ?? "";
   const smsTemplateKeys = [
     "ADMIN_TO_INSTITUTION",
@@ -3951,6 +3973,14 @@ function fillExternalApiForm(config) {
     "REPORTER_COMPLETED",
     "REPORTER_UNPROCESSABLE",
   ];
+  if (apiType === "SMS") {
+    const userIdEl = document.getElementById("sms-aligo-user-id");
+    const senderEl = document.getElementById("sms-aligo-sender");
+    const testModeEl = document.getElementById("sms-aligo-test-mode");
+    if (userIdEl) userIdEl.value = config.extraConfig?.aligoUserId ?? "";
+    if (senderEl) senderEl.value = config.extraConfig?.aligoSender ?? "";
+    if (testModeEl) testModeEl.checked = Boolean(config.extraConfig?.aligoTestMode);
+  }
   if (apiType === "SMS" && config.extraConfig?.templates) {
     const templates = config.extraConfig.templates;
     smsTemplateKeys.forEach((key) => {
@@ -4024,6 +4054,9 @@ function readSmsTemplatesFromForm() {
 
 function readSmsExtraConfigFromForm() {
   return {
+    aligoUserId: document.getElementById("sms-aligo-user-id")?.value.trim() ?? "",
+    aligoSender: document.getElementById("sms-aligo-sender")?.value.trim() ?? "",
+    aligoTestMode: Boolean(document.getElementById("sms-aligo-test-mode")?.checked),
     templates: readSmsTemplatesFromForm(),
     selfReportDashboardUrl: document.getElementById("sms-self-report-dashboard-url")?.value.trim() ?? "",
   };
@@ -4046,7 +4079,9 @@ async function saveExternalApiConfig(apiType, event) {
   event.preventDefault();
 
   const messageEl = document.getElementById(`external-api-message-${apiType}`);
-  const endpointUrl = document.getElementById(`external-api-endpoint-${apiType}`)?.value.trim() ?? "";
+  const endpointUrl =
+    document.getElementById(`external-api-endpoint-${apiType}`)?.value.trim() ??
+    (apiType === "SMS" ? "https://apis.aligo.in/send/" : "");
   const apiKey = document.getElementById(`external-api-key-${apiType}`)?.value.trim() ?? "";
   const enabled = document.getElementById(`external-api-enabled-${apiType}`)?.checked ?? false;
 
